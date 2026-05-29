@@ -100,6 +100,31 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   });
 
+  app.post('/api/queue/:id/skip', requireAdmin, async (req, res) => {
+    await supabase
+      .from('queue_items')
+      .update({ status: 'skipped', locked_at: null, error_message: null })
+      .eq('id', req.params.id);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/queue/:id/cancel', requireAdmin, async (req, res) => {
+    await supabase
+      .from('queue_items')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('status', 'pending');
+    res.json({ ok: true });
+  });
+
+  app.post('/api/queue/:id/send-now', requireAdmin, async (req, res) => {
+    await supabase
+      .from('queue_items')
+      .update({ status: 'pending', scheduled_at: new Date().toISOString(), locked_at: null, error_message: null })
+      .eq('id', req.params.id);
+    res.json({ ok: true });
+  });
+
   app.post('/api/campaigns/:id/pause', requireAdmin, async (req, res) => {
     await supabase.from('campaigns').update({ status: 'paused' }).eq('id', req.params.id);
     res.json({ ok: true });
@@ -107,6 +132,11 @@ export function registerRoutes(app: Express) {
 
   app.post('/api/campaigns/:id/resume', requireAdmin, async (req, res) => {
     await supabase.from('campaigns').update({ status: 'active' }).eq('id', req.params.id);
+    res.json({ ok: true });
+  });
+
+  app.delete('/api/campaigns/:id', requireAdmin, async (req, res) => {
+    await supabase.from('campaigns').delete().eq('id', req.params.id);
     res.json({ ok: true });
   });
 }

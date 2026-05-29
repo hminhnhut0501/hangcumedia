@@ -38,7 +38,12 @@ export default function QueuePage() {
         {!loading && rows.length > 0 ? (
           <table className="table min-w-[980px]">
             <thead><tr><th>Chiến dịch</th><th>Lịch gửi</th><th>Trạng thái</th><th>Retry</th><th>Lỗi</th><th>Thao tác</th></tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td>{new Date(row.scheduled_at).toLocaleString()}</td><td>{row.status}</td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/retry`, {}); load(); }}>Thử lại</button></td></tr>)}</tbody>
+            <tbody>{rows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td>{new Date(row.scheduled_at).toLocaleString()}</td><td>{row.status}</td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
+              <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/retry`, {}); load(); }}>Thử lại</button>
+              <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/send-now`, {}); load(); }}>Gửi ngay</button>
+              <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/skip`, {}); load(); }}>Bỏ qua</button>
+              <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/cancel`, {}); load(); }}>Hủy</button>
+            </td></tr>)}</tbody>
           </table>
         ) : null}
       </section>

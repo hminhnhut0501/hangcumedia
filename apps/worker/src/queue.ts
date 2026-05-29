@@ -121,6 +121,8 @@ export async function processDueQueueItems() {
       const campaign: any = item.campaigns;
       const source: any = item.source_messages;
       const mode = campaign.copy_mode;
+      const captionMode = campaign.caption_mode || 'original';
+      const customCaption = campaign.custom_caption || null;
 
       const sendOne = async (message: any) => {
         if (mode === 'forward') {
@@ -136,7 +138,7 @@ export async function processDueQueueItems() {
           sourceChatId: message.source_chat_id,
           sourceMessageId: message.source_message_id,
           targetThreadId: item.target_message_thread_id,
-          caption: message.caption
+          caption: captionMode === 'custom' && customCaption ? customCaption : message.caption
         });
       };
 

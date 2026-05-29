@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
-import { workerPost } from '@/lib/worker';
+import { workerDelete, workerPost } from '@/lib/worker';
 
 function statusClass(status: string) {
   if (status === 'active') return 'badge badge-ok';
@@ -47,6 +47,11 @@ export default function CampaignsPage() {
                   <td className="flex gap-2 py-2">
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); load(); }}>Tạm dừng</button>
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); load(); }}>Tiếp tục</button>
+                    <button className="btn-secondary" onClick={async () => {
+                      if (!confirm('Xóa chiến dịch này?')) return;
+                      await workerDelete(`/api/campaigns/${row.id}`);
+                      load();
+                    }}>Xóa</button>
                   </td>
                 </tr>
               ))}

@@ -15,6 +15,8 @@ export default function CampaignNewPage() {
     target_group_id: '',
     target_topic_id: '',
     copy_mode: 'copy',
+    caption_mode: 'original',
+    custom_caption: '',
     media_group_mode: 'keep',
     batch_size: 1,
     runs_per_day: 1,
@@ -41,6 +43,7 @@ export default function CampaignNewPage() {
       ...form,
       source_group_id: form.source_group_id || null,
       target_topic_id: form.target_topic_id || null,
+      custom_caption: form.caption_mode === 'custom' ? (form.custom_caption || null) : null,
       run_times: form.run_times.split(',').map((s: string) => s.trim()).filter(Boolean),
       batch_size: Number(form.batch_size),
       runs_per_day: Number(form.runs_per_day),
@@ -97,6 +100,28 @@ export default function CampaignNewPage() {
             </select>
             <p className="mt-1 text-xs text-zinc-500">`copy` thường dùng để ẩn nguồn bài gốc.</p>
           </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Tùy chọn caption</label>
+            <select className="input" value={form.caption_mode} onChange={(e) => setForm({ ...form, caption_mode: e.target.value })}>
+              <option value="original">Giữ caption gốc</option>
+              <option value="custom">Dùng caption mới (chỉ áp dụng khi copy)</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">Forward của Telegram luôn giữ caption gốc, không sửa được caption.</p>
+          </div>
+
+          {form.caption_mode === 'custom' ? (
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm text-zinc-300">Caption mới</label>
+              <textarea
+                className="input min-h-24"
+                placeholder="Nhập caption mới cho mọi bài gửi bởi campaign này..."
+                value={form.custom_caption}
+                onChange={(e) => setForm({ ...form, custom_caption: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-zinc-500">Sẽ ghi đè caption khi gửi bằng copy.</p>
+            </div>
+          ) : null}
 
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Chế độ album</label>
