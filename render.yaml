@@ -3,7 +3,7 @@ services:
     name: tele-send-worker
     runtime: node
     rootDir: .
-    buildCommand: npx pnpm@10.0.0 install --frozen-lockfile && npx pnpm@10.0.0 --filter worker build
+    buildCommand: npx pnpm@10.0.0 install --no-frozen-lockfile && npx pnpm@10.0.0 --filter worker build
     startCommand: npx pnpm@10.0.0 --filter worker start
     autoDeploy: true
     healthCheckPath: /health
