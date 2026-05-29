@@ -206,8 +206,8 @@ export async function generateQueueForCampaign(campaignId?: string) {
   }
 }
 
-async function markFailed(itemId: string, errorMessage: string, retryCount: number, retryAfterSeconds?: number) {
-  const shouldRetry = retryCount < 3;
+async function markFailed(itemId: string, errorMessage: string, retryCount: number, retryAfterSeconds?: number, forceNoRetry = false) {
+  const shouldRetry = !forceNoRetry && retryCount < 3;
   if (shouldRetry) {
     const delaySeconds = retryAfterSeconds ?? 300;
     await supabase
@@ -260,22 +260,35 @@ export async function processDueQueueItems() {
       const captionMode = campaign.caption_mode || 'original';
       const customCaption = campaign.custom_caption || null;
 
+      const sentRefs: any[] = [];
       const sendOne = async (message: any) => {
         if (mode === 'forward') {
-          return forwardMessage(bot, {
+          const result = await forwardMessage(bot, {
             targetChatId: item.target_chat_id,
             sourceChatId: message.source_chat_id,
             sourceMessageId: message.source_message_id,
             targetThreadId: item.target_message_thread_id
           });
+          sentRefs.push({
+            source_chat_id: message.source_chat_id,
+            source_message_id: message.source_message_id,
+            telegram_result: result
+          });
+          return result;
         }
-        return copyMessage(bot, {
+        const result = await copyMessage(bot, {
           targetChatId: item.target_chat_id,
           sourceChatId: message.source_chat_id,
           sourceMessageId: message.source_message_id,
           targetThreadId: item.target_message_thread_id,
           caption: captionMode === 'custom' && customCaption ? customCaption : message.caption
         });
+        sentRefs.push({
+          source_chat_id: message.source_chat_id,
+          source_message_id: message.source_message_id,
+          telegram_result: result
+        });
+        return result;
       };
 
       if (campaign.media_group_mode === 'keep' && source.media_group_id) {
@@ -296,7 +309,16 @@ export async function processDueQueueItems() {
 
       await supabase
         .from('queue_items')
-        .update({ status: 'sent', sent_at: DateTime.now().toISO(), locked_at: null, error_message: null })
+        .update({
+          status: 'sent',
+          sent_at: DateTime.now().toISO(),
+          locked_at: null,
+          error_message: null,
+          result_payload: {
+            sent_count: sentRefs.length,
+            refs: sentRefs
+          }
+        })
         .eq('id', item.id);
 
       await supabase.from('send_logs').insert({
@@ -307,8 +329,26 @@ export async function processDueQueueItems() {
         status: 'sent'
       });
     } catch (err: any) {
+      const telegramCode = Number(err?.response?.error_code);
       const retryAfter = Number(err?.response?.parameters?.retry_after);
-      await markFailed(item.id, err?.message ?? 'Unknown error', item.retry_count, Number.isFinite(retryAfter) ? retryAfter : undefined);
+      const forceNoRetry = telegramCode === 400;
+      await markFailed(
+        item.id,
+        err?.message ?? 'Unknown error',
+        item.retry_count,
+        Number.isFinite(retryAfter) ? retryAfter : undefined,
+        forceNoRetry
+      );
+      await supabase
+        .from('queue_items')
+        .update({
+          result_payload: {
+            telegram_error_code: telegramCode || null,
+            telegram_response: err?.response ?? null,
+            no_retry: forceNoRetry
+          }
+        })
+        .eq('id', item.id);
       await supabase.from('send_logs').insert({
         queue_item_id: item.id,
         campaign_id: item.campaign_id,

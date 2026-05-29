@@ -51,8 +51,13 @@ export default function LogsPage() {
         {loading ? <SkeletonTable rows={5} cols={5} /> : null}
         {!loading && filtered.length === 0 ? <div className="empty-state">Chưa có log nào.</div> : null}
         {!loading && filtered.length > 0 ? (
-          <table className="table min-w-[900px]"><thead><tr><th>Thời gian</th><th>Chiến dịch</th><th>Action</th><th>Status</th><th>Error</th></tr></thead>
-            <tbody>{pageRows.map((r) => <tr key={r.id}><td>{new Date(r.created_at).toLocaleString()}</td><td>{r.campaigns?.name || '-'}</td><td>{r.action}</td><td>{r.status}</td><td className="max-w-[420px] truncate">{r.error_message || '-'}</td></tr>)}</tbody>
+          <table className="table min-w-[1100px]"><thead><tr><th>Thời gian</th><th>Chiến dịch</th><th>ID chi tiết</th><th>Action</th><th>Status</th><th>Error</th></tr></thead>
+            <tbody>{pageRows.map((r) => <tr key={r.id}><td>{new Date(r.created_at).toLocaleString()}</td><td>{r.campaigns?.name || '-'}</td><td className="text-xs text-zinc-400">
+              <div>log: {r.id}</div>
+              <div>queue: {r.queue_item_id || '-'}</div>
+              <div>source: {r.source_message_id || '-'}</div>
+              <div>tg_code: {r.response_payload?.error_code || '-'}</div>
+            </td><td>{r.action}</td><td><span className={statusBadge(r.status)}>{r.status}</span></td><td className="max-w-[420px] truncate">{r.error_message || '-'}</td></tr>)}</tbody>
           </table>
         ) : null}
         {!loading && filtered.length > 0 ? (
@@ -68,3 +73,8 @@ export default function LogsPage() {
     </AppShell>
   );
 }
+  const statusBadge = (s: string) => {
+    if (s === 'sent') return 'badge badge-ok';
+    if (s === 'failed') return 'badge badge-err';
+    return 'badge badge-neutral';
+  };

@@ -84,8 +84,12 @@ export default function QueuePage() {
         {!loading && filtered.length === 0 ? <div className="empty-state">Không có item phù hợp bộ lọc.</div> : null}
         {!loading && filtered.length > 0 ? (
           <table className="table min-w-[980px]">
-            <thead><tr><th>Chiến dịch</th><th>Lịch gửi</th><th>Trạng thái</th><th>Retry</th><th>Lỗi</th><th>Thao tác</th></tr></thead>
-            <tbody>{pageRows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td>{formatCampaignTime(row.scheduled_at, row.campaigns?.timezone)}</td><td>{row.status}</td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
+            <thead><tr><th>Chiến dịch</th><th>ID chi tiết</th><th>Lịch gửi</th><th>Trạng thái</th><th>Retry</th><th>Lỗi</th><th>Thao tác</th></tr></thead>
+            <tbody>{pageRows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td className="text-xs text-zinc-400">
+              <div>queue: {row.id}</div>
+              <div>source: {row.source_message_id}</div>
+              <div>target: {row.target_chat_id}{row.target_message_thread_id ? `/${row.target_message_thread_id}` : ''}</div>
+            </td><td>{formatCampaignTime(row.scheduled_at, row.campaigns?.timezone)}</td><td><span className={statusBadge(row.status)}>{row.status}</span></td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/retry`, {}); load(); }}>Thử lại</button>
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/send-now`, {}); load(); }}>Gửi ngay</button>
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/skip`, {}); load(); }}>Bỏ qua</button>
@@ -106,3 +110,9 @@ export default function QueuePage() {
     </AppShell>
   );
 }
+  const statusBadge = (s: string) => {
+    if (s === 'sent') return 'badge badge-ok';
+    if (s === 'failed') return 'badge badge-err';
+    if (s === 'pending' || s === 'processing') return 'badge badge-warn';
+    return 'badge badge-neutral';
+  };
