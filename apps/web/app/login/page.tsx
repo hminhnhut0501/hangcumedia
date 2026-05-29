@@ -26,8 +26,14 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-slate-400">Đăng nhập để quản lý toàn bộ vận hành nội dung Telegram.</p>
 
         <form onSubmit={login} className="mt-5 space-y-3">
-          <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="input" type="password" placeholder="Mật khẩu" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Email đăng nhập</label>
+            <input className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Mật khẩu</label>
+            <input className="input" type="password" placeholder="Nhập mật khẩu" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
           <button className="btn w-full" type="submit">Đăng nhập hệ thống</button>
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
         </form>

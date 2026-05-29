@@ -52,41 +52,95 @@ export default function CampaignNewPage() {
 
   return (
     <AppShell
-      title="Campaign Builder"
-      subtitle="Define routing, delivery behavior, and schedule in a single structured setup flow."
+      title="Tạo chiến dịch mới"
+      subtitle="Mỗi trường đều có mô tả ngắn để bạn cấu hình đúng ngay từ lần đầu."
     >
-      <form className="card fade-up grid gap-3 md:grid-cols-2" onSubmit={submit}>
-        <input className="input" placeholder="Campaign name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <select className="input" value={form.source_group_id} onChange={(e) => setForm({ ...form, source_group_id: e.target.value })}>
-          <option value="">Source group (optional)</option>
-          {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-        </select>
+      <form className="card fade-up space-y-4" onSubmit={submit}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Tên chiến dịch</label>
+            <input className="input" placeholder="Ví dụ: Đẩy video tối" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <p className="mt-1 text-xs text-zinc-500">Tên để nhận diện chiến dịch trong queue/logs.</p>
+          </div>
 
-        <select className="input" value={form.target_group_id} onChange={(e) => setForm({ ...form, target_group_id: e.target.value })}>
-          {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-        </select>
-        <select className="input" value={form.target_topic_id} onChange={(e) => setForm({ ...form, target_topic_id: e.target.value })}>
-          <option value="">General chat (no topic)</option>
-          {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Nhóm nguồn (tuỳ chọn)</label>
+            <select className="input" value={form.source_group_id} onChange={(e) => setForm({ ...form, source_group_id: e.target.value })}>
+              <option value="">Không giới hạn nhóm nguồn</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">Nếu chọn, chỉ dùng nội dung từ nhóm nguồn này.</p>
+          </div>
 
-        <select className="input" value={form.copy_mode} onChange={(e) => setForm({ ...form, copy_mode: e.target.value })}>
-          <option value="copy">copy (hide source)</option>
-          <option value="forward">forward (keep source)</option>
-        </select>
-        <select className="input" value={form.media_group_mode} onChange={(e) => setForm({ ...form, media_group_mode: e.target.value })}>
-          <option value="keep">keep album grouping</option>
-          <option value="split">split into single items</option>
-        </select>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Nhóm đích</label>
+            <select className="input" value={form.target_group_id} onChange={(e) => setForm({ ...form, target_group_id: e.target.value })}>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">Nơi hệ thống sẽ gửi bài theo lịch.</p>
+          </div>
 
-        <input className="input" type="number" min={1} value={form.batch_size} onChange={(e) => setForm({ ...form, batch_size: e.target.value })} placeholder="Batch size" />
-        <input className="input" type="number" min={1} value={form.runs_per_day} onChange={(e) => setForm({ ...form, runs_per_day: e.target.value })} placeholder="Runs per day" />
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Topic đích</label>
+            <select className="input" value={form.target_topic_id} onChange={(e) => setForm({ ...form, target_topic_id: e.target.value })}>
+              <option value="">General chat (không topic)</option>
+              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">Chọn topic nếu nhóm đích là forum.</p>
+          </div>
 
-        <input className="input" value={form.run_times} onChange={(e) => setForm({ ...form, run_times: e.target.value })} placeholder="09:00,15:00,21:00" />
-        <input className="input" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} placeholder="Timezone" />
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Chế độ gửi</label>
+            <select className="input" value={form.copy_mode} onChange={(e) => setForm({ ...form, copy_mode: e.target.value })}>
+              <option value="copy">copy (ẩn nguồn)</option>
+              <option value="forward">forward (giữ nguồn)</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">`copy` thường dùng để ẩn nguồn bài gốc.</p>
+          </div>
 
-        <input className="input" type="number" min={0} value={form.random_delay_seconds} onChange={(e) => setForm({ ...form, random_delay_seconds: e.target.value })} placeholder="Random delay seconds" />
-        <button className="btn">Create Campaign</button>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Chế độ album</label>
+            <select className="input" value={form.media_group_mode} onChange={(e) => setForm({ ...form, media_group_mode: e.target.value })}>
+              <option value="keep">keep (giữ nhóm album)</option>
+              <option value="split">split (tách từng message)</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">`keep` phù hợp khi muốn giữ thứ tự album/video.</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Batch size</label>
+            <input className="input" type="number" min={1} value={form.batch_size} onChange={(e) => setForm({ ...form, batch_size: e.target.value })} />
+            <p className="mt-1 text-xs text-zinc-500">Mỗi lần chạy gửi bao nhiêu đơn vị nội dung.</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Runs per day</label>
+            <input className="input" type="number" min={1} value={form.runs_per_day} onChange={(e) => setForm({ ...form, runs_per_day: e.target.value })} />
+            <p className="mt-1 text-xs text-zinc-500">Số lần gửi dự kiến trong một ngày.</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Khung giờ chạy</label>
+            <input className="input" value={form.run_times} onChange={(e) => setForm({ ...form, run_times: e.target.value })} placeholder="09:00,15:00,21:00" />
+            <p className="mt-1 text-xs text-zinc-500">Nhập danh sách giờ theo định dạng `HH:mm`, ngăn cách bằng dấu phẩy.</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Múi giờ</label>
+            <input className="input" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} placeholder="Asia/Ho_Chi_Minh" />
+            <p className="mt-1 text-xs text-zinc-500">Múi giờ dùng để tính `run_times`.</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Random delay (giây)</label>
+            <input className="input" type="number" min={0} value={form.random_delay_seconds} onChange={(e) => setForm({ ...form, random_delay_seconds: e.target.value })} />
+            <p className="mt-1 text-xs text-zinc-500">Độ trễ ngẫu nhiên thêm vào lúc gửi (0 = không trễ).</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button className="btn">Tạo chiến dịch</button>
+        </div>
       </form>
     </AppShell>
   );

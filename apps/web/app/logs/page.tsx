@@ -23,9 +23,13 @@ export default function LogsPage() {
   return (
     <AppShell title="Nhật ký gửi" subtitle="Theo dõi lịch sử gửi, lỗi API Telegram và kết quả retry." actions={<button className="btn-secondary" onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}>
       <section className="card grid gap-3 md:grid-cols-3">
-        <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="all">Tất cả trạng thái</option><option value="sent">sent</option><option value="failed">failed</option>
-        </select>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-300">Lọc theo trạng thái</label>
+          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="all">Tất cả trạng thái</option><option value="sent">sent</option><option value="failed">failed</option>
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">Giúp bạn chỉ xem log thành công hoặc log lỗi.</p>
+        </div>
       </section>
       <section className="card overflow-auto">
         {loading ? <SkeletonTable rows={5} cols={5} /> : null}

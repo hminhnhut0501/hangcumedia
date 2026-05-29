@@ -54,12 +54,22 @@ export default function TopicsPage() {
     >
       <form className="card fade-up space-y-3" onSubmit={createTopic}>
         <div className="grid gap-3 md:grid-cols-3">
-          <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-            <option value="">Chọn nhóm đích</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-          </select>
-          <input className="input md:col-span-2" placeholder="Tên topic mới" value={name} onChange={(e) => setName(e.target.value)} />
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Nhóm đích</label>
+            <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <option value="">Chọn nhóm đích</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">Nhóm forum nơi topic sẽ được tạo.</p>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm text-zinc-300">Tên topic mới</label>
+            <input className="input" placeholder="Ví dụ: Video hot tuần này" value={name} onChange={(e) => setName(e.target.value)} />
+            <p className="mt-1 text-xs text-zinc-500">Tên hiển thị trong forum Telegram.</p>
+          </div>
         </div>
+
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-zinc-500">Bot phải có quyền admin trong nhóm forum để tạo topic.</p>
           <button className="btn" disabled={saving}>{saving ? 'Đang tạo...' : 'Tạo topic'}</button>

@@ -36,12 +36,21 @@ export default function InboxPage() {
       actions={<button className="btn-secondary" onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}
     >
       <section className="card fade-up grid gap-3 md:grid-cols-3">
-        <input className="input md:col-span-2" placeholder="Tìm theo chat/message/caption..." value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" value={mediaType} onChange={(e) => setMediaType(e.target.value)}>
-          <option value="all">Tất cả media</option>
-          <option value="text">text</option><option value="photo">photo</option><option value="video">video</option>
-          <option value="document">document</option><option value="animation">animation</option><option value="audio">audio</option><option value="voice">voice</option>
-        </select>
+        <div className="md:col-span-2">
+          <label className="mb-1 block text-sm text-zinc-300">Tìm kiếm nhanh</label>
+          <input className="input" placeholder="Tìm theo chat/message/caption..." value={q} onChange={(e) => setQ(e.target.value)} />
+          <p className="mt-1 text-xs text-zinc-500">Hỗ trợ tìm theo ID chat, ID message và nội dung caption/text.</p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-zinc-300">Bộ lọc media type</label>
+          <select className="input" value={mediaType} onChange={(e) => setMediaType(e.target.value)}>
+            <option value="all">Tất cả media</option>
+            <option value="text">text</option><option value="photo">photo</option><option value="video">video</option>
+            <option value="document">document</option><option value="animation">animation</option><option value="audio">audio</option><option value="voice">voice</option>
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">Lọc nhanh theo loại nội dung bot đã import.</p>
+        </div>
       </section>
 
       <section className="card fade-up overflow-auto">
