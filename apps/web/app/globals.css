@@ -3,21 +3,49 @@
 @tailwind utilities;
 
 :root {
-  color: #1f1b16;
-  background: radial-gradient(circle at top, #fff8eb, #f7f4ef 60%);
+  --bg-0: #f5f7fb;
+  --bg-1: #ffffff;
+  --ink-0: #0f172a;
+  --ink-1: #1e293b;
+  --muted: #64748b;
+  --brand: #0f766e;
+  --brand-strong: #065f56;
+  --accent: #0891b2;
+  --border: #d9e2ec;
+  color: var(--ink-1);
+  background: var(--bg-0);
 }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", sans-serif;
 }
 
 a { color: inherit; text-decoration: none; }
 
+.app-bg {
+  background:
+    radial-gradient(1200px 500px at 5% -10%, rgba(8, 145, 178, 0.14), transparent 60%),
+    radial-gradient(900px 520px at 95% 10%, rgba(15, 118, 110, 0.13), transparent 60%),
+    linear-gradient(180deg, #f9fcff 0%, #f5f7fb 56%, #eef2f7 100%);
+}
+
 .container { @apply mx-auto max-w-6xl p-6; }
-.card { @apply rounded-xl border border-stone-300 bg-white/85 p-4 shadow-sm; }
-.input { @apply w-full rounded-md border border-stone-300 p-2; }
-.btn { @apply rounded-md bg-accent px-3 py-2 text-white hover:opacity-90; }
-.btn-secondary { @apply rounded-md border border-stone-300 px-3 py-2; }
+.panel-glass {
+  @apply rounded-2xl border border-slate-200/80 bg-white/70 shadow-lg backdrop-blur;
+}
+.card {
+  @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_38px_rgba(15,23,42,0.05)];
+}
+.input {
+  @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100;
+}
+.btn {
+  @apply rounded-xl bg-gradient-to-r from-teal-700 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:brightness-105;
+}
+.btn-secondary {
+  @apply rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50;
+}
 .table { @apply w-full border-collapse; }
-.table th, .table td { @apply border-b border-stone-200 p-2 text-left text-sm; }
+.table th, .table td { @apply border-b border-slate-200 p-2 text-left text-sm; }
+.table th { @apply bg-slate-50 text-xs uppercase tracking-wide text-slate-500; }
