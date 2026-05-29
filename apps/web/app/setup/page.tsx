@@ -61,6 +61,10 @@ export default function SetupPage() {
   useEffect(() => { load(); }, []);
 
   const sourceGroup = groups.find((g) => g.id === sourceGroupId);
+  useEffect(() => {
+    if (!sourceGroup) return;
+    setScan((prev) => ({ ...prev, chat_id: String(sourceGroup.chat_id || '') }));
+  }, [sourceGroup?.id, sourceGroup?.chat_id]);
 
   async function doScanRange() {
     setLoading(true);
@@ -124,13 +128,16 @@ export default function SetupPage() {
       if (sourceGroup?.chat_id) {
         const { data: sources } = await supabase
           .from('source_messages')
-          .select('id,status')
+          .select('id,status,created_at,source_message_id')
           .eq('source_chat_id', sourceGroup.chat_id)
-          .neq('status', 'link_only')
           .order('created_at', { ascending: false })
-          .limit(300);
+          .limit(500);
 
-        const rows = (sources || []).map((s: any, idx: number) => ({
+        const ready = (sources || []).filter((s: any) => s.status !== 'link_only');
+        const linkOnly = (sources || []).filter((s: any) => s.status === 'link_only');
+        const selectedPool = ready.length > 0 ? ready : linkOnly;
+
+        const rows = selectedPool.slice(0, 300).map((s: any, idx: number) => ({
           campaign_id: campaign.id,
           source_message_id: s.id,
           sort_order: idx
@@ -138,8 +145,11 @@ export default function SetupPage() {
 
         if (rows.length > 0) {
           await supabase.from('campaign_sources').insert(rows);
+          if (ready.length === 0) {
+            setNotice('Đang dùng nguồn link_only (chưa có metadata đầy đủ). Nếu gửi lỗi, hãy forward bài gốc cho bot để bot lưu metadata thật.');
+          }
         } else {
-          throw new Error('Chưa có source_messages hợp lệ trong nhóm nguồn. Hãy để bot nhận bài mới hoặc scan thủ công trước.');
+          throw new Error('Nhóm nguồn chưa có source_messages. Hãy gửi bài mới vào nhóm backup hoặc scan range trước.');
         }
       }
 
@@ -205,7 +215,7 @@ export default function SetupPage() {
                 <div>
                   <label className="mb-1 block text-sm text-zinc-300">Chat ID nguồn</label>
                   <input className="input" placeholder="-100xxxxxxxxxx" value={scan.chat_id} onChange={(e) => setScan({ ...scan, chat_id: e.target.value })} />
-                  <p className="mt-1 text-xs text-zinc-500">ID nhóm backup cần scan. Thường bắt đầu bằng `-100`.</p>
+                  <p className="mt-1 text-xs text-zinc-500">Tự động lấy từ Nhóm nguồn (backup). Có thể sửa tay nếu cần.</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-zinc-300">Từ Message ID</label>
