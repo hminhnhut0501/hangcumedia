@@ -87,6 +87,74 @@ export function registerRoutes(app: Express) {
     res.status(400).json({ error: 'public username links are parsed but not resolvable in MVP' });
   });
 
+  app.post('/api/import/range', requireAdmin, async (req, res) => {
+    const chatId = Number(req.body?.chat_id);
+    const fromId = Number(req.body?.from_message_id);
+    const toId = Number(req.body?.to_message_id);
+
+    if (!Number.isFinite(chatId) || !Number.isFinite(fromId) || !Number.isFinite(toId)) {
+      return res.status(400).json({ error: 'chat_id/from_message_id/to_message_id must be numbers' });
+    }
+
+    const start = Math.min(fromId, toId);
+    const end = Math.max(fromId, toId);
+    const total = end - start + 1;
+    const maxRange = 500;
+    if (total > maxRange) {
+      return res.status(400).json({ error: `Range too large. Max ${maxRange} IDs per request.` });
+    }
+
+    let existedReady = 0;
+    let existedLinkOnly = 0;
+    let createdLinkOnly = 0;
+    const checkpoints: Array<{ processed: number; total: number; percent: number }> = [];
+
+    for (let i = 0; i < total; i++) {
+      const messageId = start + i;
+      const { data: found } = await supabase
+        .from('source_messages')
+        .select('id,status')
+        .eq('source_chat_id', chatId)
+        .eq('source_message_id', messageId)
+        .maybeSingle();
+
+      if (found) {
+        if (found.status === 'link_only') existedLinkOnly += 1;
+        else existedReady += 1;
+      } else {
+        const { error } = await supabase.from('source_messages').insert({
+          source_chat_id: chatId,
+          source_message_id: messageId,
+          media_type: 'unknown',
+          imported_by: 'range_import',
+          status: 'link_only',
+          text: `range_import:${chatId}:${messageId}`
+        });
+        if (!error) createdLinkOnly += 1;
+      }
+
+      const processed = i + 1;
+      if (processed % 50 === 0 || processed === total) {
+        checkpoints.push({
+          processed,
+          total,
+          percent: Math.round((processed / total) * 100)
+        });
+      }
+    }
+
+    res.json({
+      ok: true,
+      range: { chat_id: chatId, from_message_id: start, to_message_id: end, total },
+      summary: {
+        existed_ready: existedReady,
+        existed_link_only: existedLinkOnly,
+        created_link_only: createdLinkOnly
+      },
+      checkpoints
+    });
+  });
+
   app.post('/api/queue/generate', requireAdmin, async (req, res) => {
     await generateQueueForCampaign(req.body?.campaignId);
     res.json({ ok: true });
