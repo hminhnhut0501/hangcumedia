@@ -11,6 +11,7 @@ const EnvSchema = z.object({
   PUBLIC_WORKER_URL: z.string().url(),
   APP_TIMEZONE: z.string().default('Asia/Ho_Chi_Minh'),
   SCHEDULER_TICK_SECONDS: z.coerce.number().int().positive().default(30),
+  MAX_LATE_SECONDS: z.coerce.number().int().nonnegative().default(60),
   ADMIN_API_SECRET: z.string().min(1)
 });
 

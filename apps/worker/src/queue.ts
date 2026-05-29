@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { supabase } from './db.js';
 import { bot } from './bot.js';
 import { copyMessage, forwardMessage } from './telegram.js';
+import { env } from './config.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let isGeneratingQueue = false;
@@ -43,16 +44,62 @@ async function seedCampaignSourcesIfEmpty(campaign: any) {
   return rows.length;
 }
 
+async function syncCampaignSourcesFromGroup(campaign: any) {
+  if (!campaign.source_group_id) return 0;
+
+  const { data: sourceGroup } = await supabase
+    .from('telegram_groups')
+    .select('chat_id')
+    .eq('id', campaign.source_group_id)
+    .single();
+  const sourceChatId = sourceGroup?.chat_id;
+  if (!sourceChatId) return 0;
+
+  const { data: existingRows } = await supabase
+    .from('campaign_sources')
+    .select('source_message_id,sort_order')
+    .eq('campaign_id', campaign.id)
+    .order('sort_order', { ascending: true });
+  const existingSet = new Set((existingRows || []).map((r: any) => String(r.source_message_id)));
+  let nextSortOrder = (existingRows?.length || 0) > 0
+    ? Number(existingRows![existingRows!.length - 1].sort_order || 0) + 1
+    : 0;
+
+  const { data: pool } = await supabase
+    .from('source_messages')
+    .select('id,created_at,source_message_id,status')
+    .eq('source_chat_id', sourceChatId)
+    .neq('status', 'link_only')
+    .order('source_message_id', { ascending: true })
+    .limit(2000);
+  if (!pool?.length) return 0;
+
+  const missing = pool.filter((msg: any) => !existingSet.has(String(msg.id)));
+  if (!missing.length) return 0;
+
+  const rows = missing.map((msg: any) => ({
+    campaign_id: campaign.id,
+    source_message_id: msg.id,
+    sort_order: nextSortOrder++
+  }));
+  const { error } = await supabase.from('campaign_sources').insert(rows);
+  if (error) throw error;
+  return rows.length;
+}
+
 export async function generateQueueForCampaign(campaignId?: string) {
   const summary = {
     campaigns_processed: 0,
     slots_checked: 0,
     items_created: 0,
     sources_seeded: 0,
+    sources_synced: 0,
     skipped_no_sources: 0,
     skipped_no_target_group: 0,
     skipped_existing_slot: 0,
-    skipped_locked: 0
+    skipped_locked: 0,
+    skipped_exhausted_today: 0,
+    exhausted_campaigns: 0
   };
 
   if (isGeneratingQueue) {
@@ -70,7 +117,12 @@ export async function generateQueueForCampaign(campaignId?: string) {
     for (const campaign of campaigns) {
       summary.campaigns_processed += 1;
       summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
+      summary.sources_synced += await syncCampaignSourcesFromGroup(campaign);
       const runTimes: string[] = campaign.run_times ?? ['21:00'];
+      const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
+      const todayInCampaignTz = DateTime.now().setZone(tz);
+      const dayStartUtc = todayInCampaignTz.startOf('day').toUTC().toISO();
+      const dayEndUtc = todayInCampaignTz.endOf('day').toUTC().toISO();
 
       const { data: sources } = await supabase
         .from('campaign_sources')
@@ -83,10 +135,49 @@ export async function generateQueueForCampaign(campaignId?: string) {
         continue;
       }
 
+      // Global non-repeat policy:
+      // a source message is queued only once for this campaign across its lifetime.
+      const usedAllSourceIds = new Set<string>();
+      const { data: usedAllRows } = await supabase
+        .from('queue_items')
+        .select('source_message_id')
+        .eq('campaign_id', campaign.id)
+        .in('status', ['pending', 'processing', 'sent']);
+      for (const row of usedAllRows || []) usedAllSourceIds.add(String(row.source_message_id));
+
+      const sourceIdSet = new Set<string>();
+      for (const item of sources || []) {
+        const src = Array.isArray(item?.source_messages) ? item.source_messages[0] : item?.source_messages;
+        if (src?.id) sourceIdSet.add(String(src.id));
+      }
+      const totalConfigured = sourceIdSet.size;
+      const totalUsed = Array.from(sourceIdSet).filter((id) => usedAllSourceIds.has(id)).length;
+      if (totalConfigured > 0 && totalUsed >= totalConfigured) {
+        summary.exhausted_campaigns += 1;
+        await supabase.from('send_logs').insert({
+          campaign_id: campaign.id,
+          action: 'generate',
+          status: 'exhausted',
+          error_message: 'Campaign đã hết source chưa dùng. Hãy thêm source mới vào campaign.'
+        });
+        continue;
+      }
+
+      // Prevent repeating the same source message within the same campaign day.
+      const usedTodaySourceIds = new Set<string>();
+      if (dayStartUtc && dayEndUtc) {
+        const { data: usedToday } = await supabase
+          .from('queue_items')
+          .select('source_message_id')
+          .eq('campaign_id', campaign.id)
+          .gte('scheduled_at', dayStartUtc)
+          .lte('scheduled_at', dayEndUtc);
+        for (const row of usedToday || []) usedTodaySourceIds.add(String(row.source_message_id));
+      }
+
       for (const time of runTimes) {
         summary.slots_checked += 1;
         const [h, m] = time.split(':').map(Number);
-        const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
         const baseInCampaignTz = DateTime.now().setZone(tz);
         const scheduledLocal = baseInCampaignTz.set({ hour: h, minute: m, second: 0, millisecond: 0 });
         const scheduledAt = scheduledLocal.toUTC().toISO();
@@ -156,6 +247,15 @@ export async function generateQueueForCampaign(campaignId?: string) {
         picked = sortable.slice(0, campaign.batch_size).map((x) => x.source);
         }
 
+        // No repeat within same day: only pick messages that have not been used today.
+        picked = picked
+          .filter((source: any) => !usedTodaySourceIds.has(String(source.id)))
+          .filter((source: any) => !usedAllSourceIds.has(String(source.id)));
+        if (picked.length === 0) {
+          summary.skipped_exhausted_today += 1;
+          continue;
+        }
+
         const rows = picked.map((source: any) => ({
           campaign_id: campaign.id,
           source_message_id: source.id,
@@ -197,6 +297,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
             .select('id');
           if (insertError) throw insertError;
           summary.items_created += insertedRows?.length || 0;
+          for (const source of picked) {
+            usedTodaySourceIds.add(String(source.id));
+            usedAllSourceIds.add(String(source.id));
+          }
         }
       }
     }
@@ -252,6 +356,28 @@ export async function processDueQueueItems() {
       .single();
 
     if (!locked) continue;
+
+    const scheduledAt = DateTime.fromISO(item.scheduled_at);
+    const lateSeconds = Math.floor(DateTime.now().diff(scheduledAt, 'seconds').seconds);
+    if (lateSeconds > env.MAX_LATE_SECONDS) {
+      await supabase
+        .from('queue_items')
+        .update({
+          status: 'skipped',
+          locked_at: null,
+          error_message: `Skipped late item (+${lateSeconds}s > ${env.MAX_LATE_SECONDS}s)`
+        })
+        .eq('id', item.id);
+      await supabase.from('send_logs').insert({
+        queue_item_id: item.id,
+        campaign_id: item.campaign_id,
+        source_message_id: item.source_message_id,
+        action: 'send',
+        status: 'skipped',
+        error_message: `Skipped because item is too late (+${lateSeconds}s)`
+      });
+      continue;
+    }
 
     try {
       const campaign: any = item.campaigns;
