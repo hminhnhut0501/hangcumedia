@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
-import { sleep } from '@repo/shared';
 import { supabase } from './db.js';
 import { bot } from './bot.js';
 import { copyMessage, forwardMessage } from './telegram.js';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function generateQueueForCampaign(campaignId?: string) {
   const now = DateTime.now();
