@@ -55,7 +55,7 @@ export default function GroupsPage() {
       subtitle="Đăng ký nhóm backup/main/admin và chuẩn hóa thông tin routing."
       actions={<button className="btn-secondary" onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}
     >
-      <form className="card fade-up space-y-3" onSubmit={createGroup}>
+      <form className="card fade-up stagger-1 space-y-3" onSubmit={createGroup}>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Tên nhóm</label>
@@ -91,7 +91,7 @@ export default function GroupsPage() {
         {notice ? <p className="text-sm text-zinc-300">{notice}</p> : null}
       </form>
 
-      <section className="card fade-up overflow-auto">
+      <section className="card fade-up stagger-2 overflow-auto">
         {loading ? <p className="text-sm text-zinc-400">Đang tải danh sách nhóm...</p> : null}
         {!loading && groups.length === 0 ? (
           <div className="empty-state">Chưa có nhóm nào. Hãy thêm nhóm đầu tiên ở form phía trên.</div>

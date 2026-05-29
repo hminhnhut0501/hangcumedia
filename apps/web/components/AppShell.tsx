@@ -15,16 +15,16 @@ export function AppShell({ title, subtitle, actions, children }: {
       <div className="app-bg min-h-screen">
         <div className="mx-auto grid min-h-screen max-w-[1400px] grid-cols-1 gap-4 px-4 py-4 lg:grid-cols-[260px_1fr]">
           <aside className="panel hidden min-h-[calc(100vh-2rem)] p-4 lg:block">
-            <div className="mb-4 rounded-xl bg-white/[0.03] p-4">
+            <div className="mb-4 rounded-xl bg-white/[0.05] p-4 fade-up">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Executive Ops</p>
               <h2 className="mt-2 section-title text-lg font-bold text-zinc-100">Telegram Studio</h2>
-              <p className="mt-1 text-xs text-zinc-500">UI v3 Hybrid</p>
+              <p className="mt-1 text-xs text-zinc-400">UX v4 Practical+</p>
             </div>
             <Nav />
           </aside>
 
           <div className="flex min-w-0 flex-col gap-4">
-            <header className="panel p-4">
+            <header className="panel p-4 fade-up">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Vận hành</p>
