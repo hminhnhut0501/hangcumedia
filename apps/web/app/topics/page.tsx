@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 import { workerPost } from '@/lib/worker';
 
@@ -67,7 +68,7 @@ export default function TopicsPage() {
       </form>
 
       <section className="card fade-up overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải danh sách topic...</p> : null}
+        {loading ? <SkeletonTable rows={4} cols={5} /> : null}
         {!loading && topics.length === 0 ? <div className="empty-state">Chưa có topic nào được lưu.</div> : null}
         {!loading && topics.length > 0 ? (
           <table className="table min-w-[820px]">

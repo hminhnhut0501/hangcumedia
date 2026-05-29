@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 import { workerPost } from '@/lib/worker';
 
@@ -32,7 +33,7 @@ export default function QueuePage() {
       </section>
 
       <section className="card overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải queue...</p> : null}
+        {loading ? <SkeletonTable rows={5} cols={6} /> : null}
         {!loading && rows.length === 0 ? <div className="empty-state">Chưa có item queue nào.</div> : null}
         {!loading && rows.length > 0 ? (
           <table className="table min-w-[980px]">

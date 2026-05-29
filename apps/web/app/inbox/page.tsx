@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 
 export default function InboxPage() {
@@ -44,7 +45,7 @@ export default function InboxPage() {
       </section>
 
       <section className="card fade-up overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải dữ liệu nguồn...</p> : null}
+        {loading ? <SkeletonTable rows={6} cols={8} /> : null}
         {!loading && filtered.length === 0 ? <div className="empty-state">Không có bản ghi phù hợp bộ lọc hiện tại.</div> : null}
         {!loading && filtered.length > 0 ? (
           <table className="table min-w-[1100px]">

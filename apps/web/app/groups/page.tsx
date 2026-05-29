@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 
 type Group = any;
@@ -92,7 +93,7 @@ export default function GroupsPage() {
       </form>
 
       <section className="card fade-up stagger-2 overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải danh sách nhóm...</p> : null}
+        {loading ? <SkeletonTable rows={4} cols={6} /> : null}
         {!loading && groups.length === 0 ? (
           <div className="empty-state">Chưa có nhóm nào. Hãy thêm nhóm đầu tiên ở form phía trên.</div>
         ) : null}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 import { workerPost } from '@/lib/worker';
 
@@ -32,7 +33,7 @@ export default function CampaignsPage() {
       actions={<Link className="btn" href="/campaigns/new">Tạo chiến dịch</Link>}
     >
       <section className="card overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải chiến dịch...</p> : null}
+        {loading ? <SkeletonTable rows={5} cols={7} /> : null}
         {!loading && rows.length === 0 ? <div className="empty-state">Chưa có chiến dịch nào. Hãy tạo chiến dịch đầu tiên.</div> : null}
         {!loading && rows.length > 0 ? (
           <table className="table min-w-[900px]">

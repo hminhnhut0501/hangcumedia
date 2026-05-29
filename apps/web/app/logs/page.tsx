@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
 
 export default function LogsPage() {
@@ -27,7 +28,7 @@ export default function LogsPage() {
         </select>
       </section>
       <section className="card overflow-auto">
-        {loading ? <p className="text-sm text-zinc-400">Đang tải logs...</p> : null}
+        {loading ? <SkeletonTable rows={5} cols={5} /> : null}
         {!loading && filtered.length === 0 ? <div className="empty-state">Chưa có log nào.</div> : null}
         {!loading && filtered.length > 0 ? (
           <table className="table min-w-[900px]"><thead><tr><th>Thời gian</th><th>Chiến dịch</th><th>Action</th><th>Status</th><th>Error</th></tr></thead>
