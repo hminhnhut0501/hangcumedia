@@ -138,6 +138,8 @@ export default function SetupPage() {
 
         if (rows.length > 0) {
           await supabase.from('campaign_sources').insert(rows);
+        } else {
+          throw new Error('Chưa có source_messages hợp lệ trong nhóm nguồn. Hãy để bot nhận bài mới hoặc scan thủ công trước.');
         }
       }
 

@@ -7,16 +7,15 @@ export async function workerDelete(path: string) {
 }
 
 async function workerRequest(method: string, path: string, body?: any) {
-  const base = process.env.NEXT_PUBLIC_WORKER_URL || '';
-  const secret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET || '';
-  const res = await fetch(`${base}${path}`, {
+  const cleaned = path.startsWith('/') ? path.slice(1) : path;
+  const res = await fetch(`/api/worker/${cleaned}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-admin-secret': secret
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Worker request failed (${res.status})`);
+  }
   return res.json();
 }

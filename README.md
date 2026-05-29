@@ -55,8 +55,7 @@ cp .env.example .env
 - `ADMIN_EMAIL_ALLOWLIST`
 - `NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST`
 - `ADMIN_API_SECRET`
-- `NEXT_PUBLIC_ADMIN_API_SECRET` (MVP)
-- `NEXT_PUBLIC_WORKER_URL`
+- `WORKER_URL` (set trong Vercel server env để web proxy gọi worker)
 - `APP_TIMEZONE=Asia/Ho_Chi_Minh`
 - `SCHEDULER_TICK_SECONDS=30`
 
@@ -64,6 +63,7 @@ cp .env.example .env
 - Không đưa `SUPABASE_SERVICE_ROLE_KEY` ra frontend.
 - `SERVICE_ROLE_KEY` chỉ dùng ở worker.
 - `ANON_KEY` dùng cho web.
+- Không expose `ADMIN_API_SECRET` ra browser; web gọi worker qua API proxy server-side.
 
 ---
 
@@ -249,6 +249,8 @@ Bot tự import khi:
 Route `/api/*` cần header:
 - `x-admin-secret: <ADMIN_API_SECRET>`
 
+Ghi chú: Header này chỉ do web server proxy hoặc backend nội bộ gửi, không gửi từ frontend/browser.
+
 ---
 
 ## 12) Deploy production
@@ -293,8 +295,8 @@ Repo đã có `render.yaml`.
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST`
-- `NEXT_PUBLIC_WORKER_URL`
-- `NEXT_PUBLIC_ADMIN_API_SECRET`
+- `WORKER_URL`
+- `ADMIN_API_SECRET`
 4. Deploy.
 
 ---
@@ -348,4 +350,3 @@ Chưa làm trong MVP:
 - Crawl lịch sử cũ bằng userbot/MTProto
 - Multi-tenant phức tạp
 - Billing/subscription
-

@@ -5,11 +5,49 @@ import { copyMessage, forwardMessage } from './telegram.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function seedCampaignSourcesIfEmpty(campaign: any) {
+  const { data: existing } = await supabase
+    .from('campaign_sources')
+    .select('id')
+    .eq('campaign_id', campaign.id)
+    .limit(1);
+  if (existing && existing.length > 0) return 0;
+  if (!campaign.source_group_id) return 0;
+
+  const { data: sourceGroup } = await supabase
+    .from('telegram_groups')
+    .select('chat_id')
+    .eq('id', campaign.source_group_id)
+    .single();
+  const sourceChatId = sourceGroup?.chat_id;
+  if (!sourceChatId) return 0;
+
+  const { data: pool } = await supabase
+    .from('source_messages')
+    .select('id,status,created_at')
+    .eq('source_chat_id', sourceChatId)
+    .neq('status', 'link_only')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (!pool?.length) return 0;
+
+  const rows = pool.map((item: any, idx: number) => ({
+    campaign_id: campaign.id,
+    source_message_id: item.id,
+    sort_order: idx
+  }));
+  const { error } = await supabase.from('campaign_sources').insert(rows);
+  if (error) throw error;
+  return rows.length;
+}
+
 export async function generateQueueForCampaign(campaignId?: string) {
   const summary = {
     campaigns_processed: 0,
     slots_checked: 0,
     items_created: 0,
+    sources_seeded: 0,
     skipped_no_sources: 0,
     skipped_no_target_group: 0,
     skipped_existing_slot: 0
@@ -23,7 +61,9 @@ export async function generateQueueForCampaign(campaignId?: string) {
 
   for (const campaign of campaigns) {
     summary.campaigns_processed += 1;
+    summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
     const runTimes: string[] = campaign.run_times ?? ['21:00'];
+
     const { data: sources } = await supabase
       .from('campaign_sources')
       .select('sort_order, source_messages(*)')
@@ -50,10 +90,63 @@ export async function generateQueueForCampaign(campaignId?: string) {
         continue;
       }
 
-      const batch = sources.slice(0, campaign.batch_size);
-      const rows = batch.map((item: any) => ({
+      const queueCounts = new Map<string, number>();
+      const { data: existingUsage } = await supabase
+        .from('queue_items')
+        .select('source_message_id')
+        .eq('campaign_id', campaign.id);
+      for (const row of existingUsage || []) {
+        const key = row.source_message_id as string;
+        queueCounts.set(key, (queueCounts.get(key) || 0) + 1);
+      }
+
+      const normalized = (sources || []).map((item: any) => ({
+        sort_order: item.sort_order ?? 0,
+        source: item.source_messages
+      })).filter((x: any) => Boolean(x.source));
+
+      let picked: any[] = [];
+
+      if (campaign.media_group_mode === 'keep') {
+        const albumSeen = new Set<string>();
+        const units: Array<{ key: string; sort_order: number; rows: any[]; score: number }> = [];
+        for (const row of normalized) {
+          const src = row.source;
+          const key = src.media_group_id
+            ? `${src.source_chat_id}:${src.media_group_id}`
+            : `single:${src.id}`;
+          if (albumSeen.has(key)) continue;
+          albumSeen.add(key);
+
+          let rows = [src];
+          if (src.media_group_id) {
+            const { data: albumRows } = await supabase
+              .from('source_messages')
+              .select('*')
+              .eq('source_chat_id', src.source_chat_id)
+              .eq('media_group_id', src.media_group_id)
+              .order('source_message_id', { ascending: true });
+            rows = albumRows?.length ? albumRows : [src];
+          }
+
+          const score = rows.reduce((acc, r) => acc + (queueCounts.get(r.id) || 0), 0);
+          units.push({ key, sort_order: row.sort_order, rows, score });
+        }
+
+        units.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
+        picked = units.slice(0, campaign.batch_size).map((u) => u.rows[0]);
+      } else {
+        const sortable = normalized.map((row) => ({
+          ...row,
+          score: queueCounts.get(row.source.id) || 0
+        }));
+        sortable.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
+        picked = sortable.slice(0, campaign.batch_size).map((x) => x.source);
+      }
+
+      const rows = picked.map((source: any) => ({
         campaign_id: campaign.id,
-        source_message_id: item.source_messages.id,
+        source_message_id: source.id,
         scheduled_at: scheduledAt,
         target_chat_id: campaign.target_group_id ? campaign.target_group_id : 0,
         target_message_thread_id: null

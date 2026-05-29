@@ -122,32 +122,32 @@ export default function CampaignDetailPage() {
         <form className="card fade-up space-y-3" onSubmit={saveConfig}>
           <h2 className="text-lg font-semibold text-zinc-100">Sửa cấu hình chiến dịch</h2>
           <div className="grid gap-3 md:grid-cols-2">
-            <input className="input" value={configForm.name} onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })} />
-            <select className="input" value={configForm.target_group_id} onChange={(e) => setConfigForm({ ...configForm, target_group_id: e.target.value })}>
+            <div><label className="mb-1 block text-sm text-zinc-300">Tên chiến dịch</label><input className="input" value={configForm.name} onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Nhóm đích</label><select className="input" value={configForm.target_group_id} onChange={(e) => setConfigForm({ ...configForm, target_group_id: e.target.value })}>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-            </select>
-            <select className="input" value={configForm.target_topic_id || ''} onChange={(e) => setConfigForm({ ...configForm, target_topic_id: e.target.value })}>
+            </select></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Topic đích</label><select className="input" value={configForm.target_topic_id || ''} onChange={(e) => setConfigForm({ ...configForm, target_topic_id: e.target.value })}>
               <option value="">General chat (không topic)</option>
               {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-            <select className="input" value={configForm.copy_mode} onChange={(e) => setConfigForm({ ...configForm, copy_mode: e.target.value })}>
+            </select></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Chế độ gửi</label><select className="input" value={configForm.copy_mode} onChange={(e) => setConfigForm({ ...configForm, copy_mode: e.target.value })}>
               <option value="copy">copy</option><option value="forward">forward</option>
-            </select>
-            <select className="input" value={configForm.caption_mode} onChange={(e) => setConfigForm({ ...configForm, caption_mode: e.target.value })}>
+            </select></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Caption</label><select className="input" value={configForm.caption_mode} onChange={(e) => setConfigForm({ ...configForm, caption_mode: e.target.value })}>
               <option value="original">Giữ caption gốc</option><option value="custom">Caption mới (copy)</option>
-            </select>
-            <input className="input" placeholder="Caption mới" value={configForm.custom_caption} onChange={(e) => setConfigForm({ ...configForm, custom_caption: e.target.value })} />
-            <select className="input" value={configForm.media_group_mode} onChange={(e) => setConfigForm({ ...configForm, media_group_mode: e.target.value })}>
+            </select></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Caption mới</label><input className="input" placeholder="Chỉ dùng khi chọn caption custom" value={configForm.custom_caption} onChange={(e) => setConfigForm({ ...configForm, custom_caption: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Album mode</label><select className="input" value={configForm.media_group_mode} onChange={(e) => setConfigForm({ ...configForm, media_group_mode: e.target.value })}>
               <option value="keep">keep</option><option value="split">split</option>
-            </select>
-            <input className="input" type="number" min={1} value={configForm.batch_size} onChange={(e) => setConfigForm({ ...configForm, batch_size: e.target.value })} />
-            <input className="input" type="number" min={1} value={configForm.runs_per_day} onChange={(e) => setConfigForm({ ...configForm, runs_per_day: e.target.value })} />
-            <input className="input" value={configForm.run_times} onChange={(e) => setConfigForm({ ...configForm, run_times: e.target.value })} />
-            <input className="input" value={configForm.timezone} onChange={(e) => setConfigForm({ ...configForm, timezone: e.target.value })} />
-            <input className="input" type="number" min={0} value={configForm.random_delay_seconds} onChange={(e) => setConfigForm({ ...configForm, random_delay_seconds: e.target.value })} />
-            <select className="input" value={configForm.status} onChange={(e) => setConfigForm({ ...configForm, status: e.target.value })}>
+            </select></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Batch size</label><input className="input" type="number" min={1} value={configForm.batch_size} onChange={(e) => setConfigForm({ ...configForm, batch_size: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Runs per day</label><input className="input" type="number" min={1} value={configForm.runs_per_day} onChange={(e) => setConfigForm({ ...configForm, runs_per_day: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Khung giờ</label><input className="input" value={configForm.run_times} onChange={(e) => setConfigForm({ ...configForm, run_times: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Timezone</label><input className="input" value={configForm.timezone} onChange={(e) => setConfigForm({ ...configForm, timezone: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Random delay (giây)</label><input className="input" type="number" min={0} value={configForm.random_delay_seconds} onChange={(e) => setConfigForm({ ...configForm, random_delay_seconds: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Trạng thái</label><select className="input" value={configForm.status} onChange={(e) => setConfigForm({ ...configForm, status: e.target.value })}>
               <option value="active">active</option><option value="paused">paused</option><option value="archived">archived</option>
-            </select>
+            </select></div>
           </div>
           <div className="flex justify-end">
             <button className="btn" disabled={savingConfig}>{savingConfig ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
