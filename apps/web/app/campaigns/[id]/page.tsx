@@ -76,8 +76,8 @@ export default function CampaignDetailPage() {
       custom_caption: configForm.caption_mode === 'custom' ? (configForm.custom_caption || null) : null,
       media_group_mode: configForm.media_group_mode,
       batch_size: Number(configForm.batch_size),
-      runs_per_day: Number(configForm.runs_per_day),
       run_times: String(configForm.run_times).split(',').map((s) => s.trim()).filter(Boolean),
+      runs_per_day: String(configForm.run_times).split(',').map((s) => s.trim()).filter(Boolean).length || 1,
       timezone: configForm.timezone,
       random_delay_seconds: Number(configForm.random_delay_seconds),
       status: configForm.status
@@ -118,10 +118,12 @@ export default function CampaignDetailPage() {
             }
             const result = await workerPost('/api/queue/generate', { campaignId: id });
             const s = result?.summary;
+            const exhausted = (s?.exhausted_campaigns ?? 0) > 0;
             const warn = (p?.warnings || []).length ? ` | warnings: ${(p.warnings || []).join(' ; ')}` : '';
             setQueueNotice(
               `Generate queue xong: created=${s?.items_created ?? 0}, slots=${s?.slots_checked ?? 0}, ` +
-              `skip_no_sources=${s?.skipped_no_sources ?? 0}, skip_existing_slot=${s?.skipped_existing_slot ?? 0}${warn}`
+              `skip_no_sources=${s?.skipped_no_sources ?? 0}, skip_existing_slot=${s?.skipped_existing_slot ?? 0}, exhausted=${s?.exhausted_campaigns ?? 0}${warn}` +
+              (exhausted ? ' | Campaign đã hết source chưa dùng, cần thêm source mới.' : '')
             );
           } catch (err: any) {
             setQueueNotice(`Generate queue lỗi: ${err.message}`);
@@ -162,7 +164,7 @@ export default function CampaignDetailPage() {
               <option value="keep">keep</option><option value="split">split</option>
             </select></div>
             <div><label className="mb-1 block text-sm text-zinc-300">Batch size</label><input className="input" type="number" min={1} value={configForm.batch_size} onChange={(e) => setConfigForm({ ...configForm, batch_size: e.target.value })} /></div>
-            <div><label className="mb-1 block text-sm text-zinc-300">Runs per day</label><input className="input" type="number" min={1} value={configForm.runs_per_day} onChange={(e) => setConfigForm({ ...configForm, runs_per_day: e.target.value })} /></div>
+            <div><label className="mb-1 block text-sm text-zinc-300">Runs per day</label><input className="input" type="number" min={1} value={String(configForm.run_times).split(',').map((s) => s.trim()).filter(Boolean).length || 1} readOnly /></div>
             <div><label className="mb-1 block text-sm text-zinc-300">Khung giờ</label><input className="input" value={configForm.run_times} onChange={(e) => setConfigForm({ ...configForm, run_times: e.target.value })} /></div>
             <div><label className="mb-1 block text-sm text-zinc-300">Timezone</label><input className="input" value={configForm.timezone} onChange={(e) => setConfigForm({ ...configForm, timezone: e.target.value })} /></div>
             <div><label className="mb-1 block text-sm text-zinc-300">Random delay (giây)</label><input className="input" type="number" min={0} value={configForm.random_delay_seconds} onChange={(e) => setConfigForm({ ...configForm, random_delay_seconds: e.target.value })} /></div>

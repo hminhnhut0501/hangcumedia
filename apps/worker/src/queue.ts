@@ -118,7 +118,18 @@ export async function generateQueueForCampaign(campaignId?: string) {
       summary.campaigns_processed += 1;
       summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
       summary.sources_synced += await syncCampaignSourcesFromGroup(campaign);
-      const runTimes: string[] = campaign.run_times ?? ['21:00'];
+      const rawRunTimes: string[] = campaign.run_times ?? ['21:00'];
+      const runTimes = rawRunTimes
+        .map((t) => String(t || '').trim())
+        .filter((t) => /^\d{2}:\d{2}$/.test(t));
+      const effectiveRunTimes = runTimes.length ? runTimes : ['21:00'];
+      const computedRunsPerDay = effectiveRunTimes.length;
+      if ((campaign.runs_per_day || 0) !== computedRunsPerDay) {
+        await supabase
+          .from('campaigns')
+          .update({ runs_per_day: computedRunsPerDay })
+          .eq('id', campaign.id);
+      }
       const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
       const todayInCampaignTz = DateTime.now().setZone(tz);
       const dayStartUtc = todayInCampaignTz.startOf('day').toUTC().toISO();
@@ -175,7 +186,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
         for (const row of usedToday || []) usedTodaySourceIds.add(String(row.source_message_id));
       }
 
-      for (const time of runTimes) {
+      for (const time of effectiveRunTimes) {
         summary.slots_checked += 1;
         const [h, m] = time.split(':').map(Number);
         const baseInCampaignTz = DateTime.now().setZone(tz);

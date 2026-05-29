@@ -43,14 +43,15 @@ export default function CampaignNewPage() {
     e.preventDefault();
     setSubmitting(true);
     setNotice('');
+    const runTimes = form.run_times.split(',').map((s: string) => s.trim()).filter(Boolean);
     const payload = {
       ...form,
       source_group_id: form.source_group_id || null,
       target_topic_id: form.target_topic_id || null,
       custom_caption: form.caption_mode === 'custom' ? (form.custom_caption || null) : null,
-      run_times: form.run_times.split(',').map((s: string) => s.trim()).filter(Boolean),
+      run_times: runTimes,
       batch_size: Number(form.batch_size),
-      runs_per_day: Number(form.runs_per_day),
+      runs_per_day: runTimes.length || 1,
       random_delay_seconds: Number(form.random_delay_seconds)
     };
 
@@ -169,8 +170,8 @@ export default function CampaignNewPage() {
 
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Runs per day</label>
-            <input className="input" type="number" min={1} value={form.runs_per_day} onChange={(e) => setForm({ ...form, runs_per_day: e.target.value })} />
-            <p className="mt-1 text-xs text-zinc-500">Số lần gửi dự kiến trong một ngày.</p>
+            <input className="input" type="number" min={1} value={form.run_times.split(',').map((s: string) => s.trim()).filter(Boolean).length || 1} readOnly />
+            <p className="mt-1 text-xs text-zinc-500">Tự đồng bộ theo số lượng khung giờ.</p>
           </div>
 
           <div>
