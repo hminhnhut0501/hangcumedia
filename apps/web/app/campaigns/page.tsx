@@ -29,7 +29,7 @@ export default function CampaignsPage() {
   return (
     <AppShell
       title="Chiến dịch"
-      subtitle="Quản lý lịch gửi, chế độ copy/forward, batch và trạng thái hoạt động."
+      subtitle="Quản lý lịch gửi, sửa cấu hình, tạm dừng/tiếp tục và xóa chiến dịch."
       actions={<Link className="btn" href="/campaigns/new">Tạo chiến dịch</Link>}
     >
       <section className="card overflow-auto">
@@ -47,8 +47,8 @@ export default function CampaignsPage() {
                   <td className="flex gap-2 py-2">
                     <Link className="btn-secondary" href={`/campaigns/${row.id}`}>Sửa</Link>
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); load(); }}>Tạm dừng</button>
-                    <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); load(); }}>Tiếp tục</button>
-                    <button className="btn-secondary" onClick={async () => {
+                    <button className="btn-success" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); load(); }}>Tiếp tục</button>
+                    <button className="btn-danger" onClick={async () => {
                       if (!confirm('Xóa chiến dịch này?')) return;
                       await workerDelete(`/api/campaigns/${row.id}`);
                       load();

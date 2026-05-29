@@ -200,11 +200,27 @@ export default function SetupPage() {
           </div>
 
           {sourceMode === 'scan' ? (
-            <div className="grid gap-3 md:grid-cols-4">
-              <input className="input" placeholder="chat_id" value={scan.chat_id} onChange={(e) => setScan({ ...scan, chat_id: e.target.value })} />
-              <input className="input" placeholder="from_message_id" value={scan.from_message_id} onChange={(e) => setScan({ ...scan, from_message_id: e.target.value })} />
-              <input className="input" placeholder="to_message_id" value={scan.to_message_id} onChange={(e) => setScan({ ...scan, to_message_id: e.target.value })} />
-              <button className="btn" onClick={doScanRange} disabled={loading}>{loading ? 'Đang scan...' : 'Scan range'}</button>
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-300">Chat ID nguồn</label>
+                  <input className="input" placeholder="-100xxxxxxxxxx" value={scan.chat_id} onChange={(e) => setScan({ ...scan, chat_id: e.target.value })} />
+                  <p className="mt-1 text-xs text-zinc-500">ID nhóm backup cần scan. Thường bắt đầu bằng `-100`.</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-300">Từ Message ID</label>
+                  <input className="input" placeholder="1000" value={scan.from_message_id} onChange={(e) => setScan({ ...scan, from_message_id: e.target.value })} />
+                  <p className="mt-1 text-xs text-zinc-500">ID bắt đầu của dải cần import.</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-300">Đến Message ID</label>
+                  <input className="input" placeholder="1200" value={scan.to_message_id} onChange={(e) => setScan({ ...scan, to_message_id: e.target.value })} />
+                  <p className="mt-1 text-xs text-zinc-500">ID kết thúc của dải cần import (tối đa 500 ID/lần).</p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button className="btn" onClick={doScanRange} disabled={loading}>{loading ? 'Đang scan...' : 'Scan range'}</button>
+              </div>
             </div>
           ) : null}
 
@@ -257,14 +273,48 @@ export default function SetupPage() {
         <section className="card fade-up space-y-3">
           <h3 className="section-title text-lg font-semibold">Bước 3 - Luật gửi</h3>
           <div className="grid gap-3 md:grid-cols-2">
-            <input className="input" placeholder="Tên chiến dịch" value={rule.name} onChange={(e) => setRule({ ...rule, name: e.target.value })} />
-            <input className="input" placeholder="Khung giờ, ví dụ 09:00,15:00,21:00" value={rule.run_times} onChange={(e) => setRule({ ...rule, run_times: e.target.value })} />
-            <select className="input" value={rule.copy_mode} onChange={(e) => setRule({ ...rule, copy_mode: e.target.value })}><option value="copy">copy</option><option value="forward">forward</option></select>
-            <select className="input" value={rule.media_group_mode} onChange={(e) => setRule({ ...rule, media_group_mode: e.target.value })}><option value="keep">keep album</option><option value="split">split</option></select>
-            <input className="input" type="number" min={1} value={rule.batch_size} onChange={(e) => setRule({ ...rule, batch_size: Number(e.target.value) })} />
-            <input className="input" placeholder="Timezone" value={rule.timezone} onChange={(e) => setRule({ ...rule, timezone: e.target.value })} />
-            <select className="input" value={rule.caption_mode} onChange={(e) => setRule({ ...rule, caption_mode: e.target.value })}><option value="original">Giữ caption gốc</option><option value="custom">Caption mới</option></select>
-            {rule.caption_mode === 'custom' ? <input className="input" placeholder="Caption mới" value={rule.custom_caption} onChange={(e) => setRule({ ...rule, custom_caption: e.target.value })} /> : <div />}
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Tên chiến dịch</label>
+              <input className="input" placeholder="Ví dụ: Đẩy video khung giờ tối" value={rule.name} onChange={(e) => setRule({ ...rule, name: e.target.value })} />
+              <p className="mt-1 text-xs text-zinc-500">Tên hiển thị để quản lý ở màn Chiến dịch/Queue.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Khung giờ chạy</label>
+              <input className="input" placeholder="09:00,15:00,21:00" value={rule.run_times} onChange={(e) => setRule({ ...rule, run_times: e.target.value })} />
+              <p className="mt-1 text-xs text-zinc-500">Nhập dạng `HH:mm`, ngăn cách bằng dấu phẩy.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Chế độ gửi</label>
+              <select className="input" value={rule.copy_mode} onChange={(e) => setRule({ ...rule, copy_mode: e.target.value })}><option value="copy">copy (ẩn nguồn)</option><option value="forward">forward (giữ nguồn)</option></select>
+              <p className="mt-1 text-xs text-zinc-500">`copy` thường dùng khi muốn ẩn nguồn bài gốc.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Xử lý album</label>
+              <select className="input" value={rule.media_group_mode} onChange={(e) => setRule({ ...rule, media_group_mode: e.target.value })}><option value="keep">keep album (giữ cụm)</option><option value="split">split (tách lẻ)</option></select>
+              <p className="mt-1 text-xs text-zinc-500">`keep` sẽ gửi cả album theo cụm, `split` gửi từng item.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Batch size</label>
+              <input className="input" type="number" min={1} value={rule.batch_size} onChange={(e) => setRule({ ...rule, batch_size: Number(e.target.value) })} />
+              <p className="mt-1 text-xs text-zinc-500">Mỗi lần chạy gửi bao nhiêu đơn vị nội dung.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Múi giờ</label>
+              <input className="input" placeholder="Asia/Ho_Chi_Minh" value={rule.timezone} onChange={(e) => setRule({ ...rule, timezone: e.target.value })} />
+              <p className="mt-1 text-xs text-zinc-500">Dùng để tính đúng khung giờ chạy.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Caption mode</label>
+              <select className="input" value={rule.caption_mode} onChange={(e) => setRule({ ...rule, caption_mode: e.target.value })}><option value="original">Giữ caption gốc</option><option value="custom">Dùng caption mới</option></select>
+              <p className="mt-1 text-xs text-zinc-500">Forward luôn giữ caption gốc theo Telegram.</p>
+            </div>
+            {rule.caption_mode === 'custom' ? (
+              <div>
+                <label className="mb-1 block text-sm text-zinc-300">Caption mới</label>
+                <input className="input" placeholder="Nhập caption mới..." value={rule.custom_caption} onChange={(e) => setRule({ ...rule, custom_caption: e.target.value })} />
+                <p className="mt-1 text-xs text-zinc-500">Sẽ áp dụng khi gửi bằng copy.</p>
+              </div>
+            ) : <div />}
           </div>
 
           <div className="flex justify-between">

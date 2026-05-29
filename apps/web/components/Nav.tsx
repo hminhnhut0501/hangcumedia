@@ -7,12 +7,24 @@ import {
   Shield,
   WandSparkles,
   Activity,
-  Settings
+  Settings,
+  Megaphone,
+  Users,
+  Hash,
+  Inbox,
+  ListChecks,
+  ScrollText
 } from 'lucide-react';
 
 const links = [
   { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể', Icon: LayoutDashboard },
   { href: '/setup', label: 'Setup nhanh', hint: 'Nguồn -> Đích -> Chạy', Icon: WandSparkles },
+  { href: '/groups', label: 'Nhóm', hint: 'Quản lý nguồn/đích', Icon: Users },
+  { href: '/topics', label: 'Chủ đề', hint: 'Mapping topic đích', Icon: Hash },
+  { href: '/inbox', label: 'Hộp nguồn', hint: 'Source messages', Icon: Inbox },
+  { href: '/campaigns', label: 'Chiến dịch', hint: 'Sửa/Xóa/Tạm dừng', Icon: Megaphone },
+  { href: '/queue', label: 'Hàng đợi', hint: 'Retry/Send now', Icon: ListChecks },
+  { href: '/logs', label: 'Nhật ký', hint: 'Theo dõi lỗi gửi', Icon: ScrollText },
   { href: '/monitor', label: 'Giám sát', hint: 'Queue + logs nhanh', Icon: Activity },
   { href: '/admins', label: 'Admin', hint: 'Quyền bot riêng tư', Icon: Shield },
   { href: '/settings', label: 'Cài đặt', hint: 'Hệ thống', Icon: Settings }
