@@ -11,6 +11,12 @@ export default function MonitorPage() {
   const [failedPage, setFailedPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
   const pageSize = 10;
+  const statusBadge = (s: string) => {
+    if (s === 'sent') return 'badge badge-ok';
+    if (s === 'failed') return 'badge badge-err';
+    if (s === 'pending' || s === 'processing') return 'badge badge-warn';
+    return 'badge badge-neutral';
+  };
 
   const formatCampaignTime = (iso: string, timezone?: string) => {
     const tz = timezone || 'Asia/Ho_Chi_Minh';
@@ -32,8 +38,8 @@ export default function MonitorPage() {
 
   async function load() {
     const [q, l] = await Promise.all([
-      supabase.from('queue_items').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(100),
-      supabase.from('send_logs').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(50)
+      supabase.from('queue_items').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(100),
+      supabase.from('send_logs').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(50)
     ]);
     setQueue(q.data || []);
     setLogs(l.data || []);
@@ -71,7 +77,7 @@ export default function MonitorPage() {
         </div>
         <div className="overflow-auto">
           <table className="table min-w-[1000px]"><thead><tr><th>Campaign</th><th>ID chi tiết</th><th>Scheduled</th><th>Status</th><th>Error</th><th>Retry</th><th>Action</th></tr></thead>
-            <tbody>{failedRows.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td className="text-xs text-zinc-400"><div>queue: {f.id}</div><div>source: {f.source_message_id}</div></td><td>{formatCampaignTime(f.scheduled_at, f.campaigns?.timezone)}</td><td><span className={statusBadge(f.status)}>{f.status}</span></td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); load(); }}>Retry</button></td></tr>)}</tbody>
+            <tbody>{failedRows.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td className="text-xs text-zinc-400"><div>queue: {f.id}</div><div>msg: {f.source_messages?.source_chat_id || '-'}/{f.source_messages?.source_message_id || '-'}</div></td><td>{formatCampaignTime(f.scheduled_at, f.campaigns?.timezone)}</td><td><span className={statusBadge(f.status)}>{f.status}</span></td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); load(); }}>Retry</button></td></tr>)}</tbody>
           </table>
         </div>
         {failed.length > 0 ? (
@@ -89,7 +95,7 @@ export default function MonitorPage() {
       <section className="card overflow-auto">
         <h3 className="section-title mb-3 text-lg font-semibold">Log gần nhất</h3>
         <table className="table min-w-[1000px]"><thead><tr><th>Time</th><th>Campaign</th><th>ID chi tiết</th><th>Status</th><th>Error</th></tr></thead>
-          <tbody>{logRows.map((l) => <tr key={l.id}><td>{formatCampaignTime(l.created_at, l.campaigns?.timezone)}</td><td>{l.campaigns?.name || '-'}</td><td className="text-xs text-zinc-400"><div>log: {l.id}</div><div>queue: {l.queue_item_id || '-'}</div><div>source: {l.source_message_id || '-'}</div><div>tg_code: {l.response_payload?.error_code || '-'}</div></td><td><span className={statusBadge(l.status)}>{l.status}</span></td><td className="max-w-[350px] truncate">{l.error_message || '-'}</td></tr>)}</tbody>
+          <tbody>{logRows.map((l) => <tr key={l.id}><td>{formatCampaignTime(l.created_at, l.campaigns?.timezone)}</td><td>{l.campaigns?.name || '-'}</td><td className="text-xs text-zinc-400"><div>log: {l.id}</div><div>queue: {l.queue_item_id || '-'}</div><div>msg: {l.source_messages?.source_chat_id || '-'}/{l.source_messages?.source_message_id || '-'}</div><div>tg_code: {l.response_payload?.error_code || '-'}</div></td><td><span className={statusBadge(l.status)}>{l.status}</span></td><td className="max-w-[350px] truncate">{l.error_message || '-'}</td></tr>)}</tbody>
         </table>
         {logs.length > 0 ? (
           <div className="mt-3 flex items-center justify-between text-sm text-zinc-400">
@@ -105,9 +111,3 @@ export default function MonitorPage() {
     </AppShell>
   );
 }
-  const statusBadge = (s: string) => {
-    if (s === 'sent') return 'badge badge-ok';
-    if (s === 'failed') return 'badge badge-err';
-    if (s === 'pending' || s === 'processing') return 'badge badge-warn';
-    return 'badge badge-neutral';
-  };

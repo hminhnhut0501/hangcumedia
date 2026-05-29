@@ -30,10 +30,20 @@ export default function QueuePage() {
       return new Date(iso).toLocaleString();
     }
   };
+  const statusBadge = (s: string) => {
+    if (s === 'sent') return 'badge badge-ok';
+    if (s === 'failed') return 'badge badge-err';
+    if (s === 'pending' || s === 'processing') return 'badge badge-warn';
+    return 'badge badge-neutral';
+  };
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('queue_items').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(300);
+    const { data } = await supabase
+      .from('queue_items')
+      .select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)')
+      .order('created_at', { ascending: false })
+      .limit(300);
     setRows(data || []);
     setLoading(false);
   }
@@ -87,7 +97,7 @@ export default function QueuePage() {
             <thead><tr><th>Chiến dịch</th><th>ID chi tiết</th><th>Lịch gửi</th><th>Trạng thái</th><th>Retry</th><th>Lỗi</th><th>Thao tác</th></tr></thead>
             <tbody>{pageRows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td className="text-xs text-zinc-400">
               <div>queue: {row.id}</div>
-              <div>source: {row.source_message_id}</div>
+              <div>msg: {row.source_messages?.source_chat_id || '-'}/{row.source_messages?.source_message_id || '-'}</div>
               <div>target: {row.target_chat_id}{row.target_message_thread_id ? `/${row.target_message_thread_id}` : ''}</div>
             </td><td>{formatCampaignTime(row.scheduled_at, row.campaigns?.timezone)}</td><td><span className={statusBadge(row.status)}>{row.status}</span></td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/retry`, {}); load(); }}>Thử lại</button>
@@ -110,9 +120,3 @@ export default function QueuePage() {
     </AppShell>
   );
 }
-  const statusBadge = (s: string) => {
-    if (s === 'sent') return 'badge badge-ok';
-    if (s === 'failed') return 'badge badge-err';
-    if (s === 'pending' || s === 'processing') return 'badge badge-warn';
-    return 'badge badge-neutral';
-  };

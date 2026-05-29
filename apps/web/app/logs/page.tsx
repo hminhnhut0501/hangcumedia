@@ -12,10 +12,19 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const statusBadge = (s: string) => {
+    if (s === 'sent') return 'badge badge-ok';
+    if (s === 'failed') return 'badge badge-err';
+    return 'badge badge-neutral';
+  };
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('send_logs').select('*,campaigns(name)').order('created_at', { ascending: false }).limit(400);
+    const { data } = await supabase
+      .from('send_logs')
+      .select('*,campaigns(name),source_messages(source_chat_id,source_message_id)')
+      .order('created_at', { ascending: false })
+      .limit(400);
     setRows(data || []);
     setLoading(false);
   }
@@ -55,7 +64,7 @@ export default function LogsPage() {
             <tbody>{pageRows.map((r) => <tr key={r.id}><td>{new Date(r.created_at).toLocaleString()}</td><td>{r.campaigns?.name || '-'}</td><td className="text-xs text-zinc-400">
               <div>log: {r.id}</div>
               <div>queue: {r.queue_item_id || '-'}</div>
-              <div>source: {r.source_message_id || '-'}</div>
+              <div>msg: {r.source_messages?.source_chat_id || '-'}/{r.source_messages?.source_message_id || '-'}</div>
               <div>tg_code: {r.response_payload?.error_code || '-'}</div>
             </td><td>{r.action}</td><td><span className={statusBadge(r.status)}>{r.status}</span></td><td className="max-w-[420px] truncate">{r.error_message || '-'}</td></tr>)}</tbody>
           </table>
@@ -73,8 +82,3 @@ export default function LogsPage() {
     </AppShell>
   );
 }
-  const statusBadge = (s: string) => {
-    if (s === 'sent') return 'badge badge-ok';
-    if (s === 'failed') return 'badge badge-err';
-    return 'badge badge-neutral';
-  };
