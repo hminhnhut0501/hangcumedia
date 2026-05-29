@@ -4,6 +4,7 @@ import { bot } from './bot.js';
 import { copyMessage, forwardMessage } from './telegram.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+let isGeneratingQueue = false;
 
 async function seedCampaignSourcesIfEmpty(campaign: any) {
   const { data: existing } = await supabase
@@ -50,67 +51,75 @@ export async function generateQueueForCampaign(campaignId?: string) {
     sources_seeded: 0,
     skipped_no_sources: 0,
     skipped_no_target_group: 0,
-    skipped_existing_slot: 0
+    skipped_existing_slot: 0,
+    skipped_locked: 0
   };
 
-  let query = supabase.from('campaigns').select('*').eq('status', 'active');
-  if (campaignId) query = query.eq('id', campaignId);
-  const { data: campaigns, error } = await query;
-  if (error || !campaigns) throw error;
+  if (isGeneratingQueue) {
+    summary.skipped_locked = 1;
+    return summary;
+  }
+  isGeneratingQueue = true;
 
-  for (const campaign of campaigns) {
-    summary.campaigns_processed += 1;
-    summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
-    const runTimes: string[] = campaign.run_times ?? ['21:00'];
+  try {
+    let query = supabase.from('campaigns').select('*').eq('status', 'active');
+    if (campaignId) query = query.eq('id', campaignId);
+    const { data: campaigns, error } = await query;
+    if (error || !campaigns) throw error;
 
-    const { data: sources } = await supabase
-      .from('campaign_sources')
-      .select('sort_order, source_messages(*)')
-      .eq('campaign_id', campaign.id)
-      .order('sort_order', { ascending: true });
+    for (const campaign of campaigns) {
+      summary.campaigns_processed += 1;
+      summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
+      const runTimes: string[] = campaign.run_times ?? ['21:00'];
 
-    if (!sources?.length) {
-      summary.skipped_no_sources += 1;
-      continue;
-    }
-
-    for (const time of runTimes) {
-      summary.slots_checked += 1;
-      const [h, m] = time.split(':').map(Number);
-      const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
-      const baseInCampaignTz = DateTime.now().setZone(tz);
-      const scheduledLocal = baseInCampaignTz.set({ hour: h, minute: m, second: 0, millisecond: 0 });
-      const scheduledAt = scheduledLocal.toUTC().toISO();
-      if (!scheduledAt) continue;
-      const { data: existed } = await supabase
-        .from('queue_items')
-        .select('id')
+      const { data: sources } = await supabase
+        .from('campaign_sources')
+        .select('sort_order, source_messages(*)')
         .eq('campaign_id', campaign.id)
-        .eq('scheduled_at', scheduledAt!)
-        .limit(1);
-      if (existed && existed.length > 0) {
-        summary.skipped_existing_slot += 1;
+        .order('sort_order', { ascending: true });
+
+      if (!sources?.length) {
+        summary.skipped_no_sources += 1;
         continue;
       }
 
-      const queueCounts = new Map<string, number>();
-      const { data: existingUsage } = await supabase
-        .from('queue_items')
-        .select('source_message_id')
-        .eq('campaign_id', campaign.id);
-      for (const row of existingUsage || []) {
-        const key = row.source_message_id as string;
-        queueCounts.set(key, (queueCounts.get(key) || 0) + 1);
-      }
+      for (const time of runTimes) {
+        summary.slots_checked += 1;
+        const [h, m] = time.split(':').map(Number);
+        const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
+        const baseInCampaignTz = DateTime.now().setZone(tz);
+        const scheduledLocal = baseInCampaignTz.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+        const scheduledAt = scheduledLocal.toUTC().toISO();
+        if (!scheduledAt) continue;
+        const { data: existed } = await supabase
+          .from('queue_items')
+          .select('id')
+          .eq('campaign_id', campaign.id)
+          .eq('scheduled_at', scheduledAt!)
+          .limit(1);
+        if (existed && existed.length > 0) {
+          summary.skipped_existing_slot += 1;
+          continue;
+        }
 
-      const normalized = (sources || []).map((item: any) => ({
-        sort_order: item.sort_order ?? 0,
-        source: item.source_messages
-      })).filter((x: any) => Boolean(x.source));
+        const queueCounts = new Map<string, number>();
+        const { data: existingUsage } = await supabase
+          .from('queue_items')
+          .select('source_message_id')
+          .eq('campaign_id', campaign.id);
+        for (const row of existingUsage || []) {
+          const key = row.source_message_id as string;
+          queueCounts.set(key, (queueCounts.get(key) || 0) + 1);
+        }
 
-      let picked: any[] = [];
+        const normalized = (sources || []).map((item: any) => ({
+          sort_order: item.sort_order ?? 0,
+          source: item.source_messages
+        })).filter((x: any) => Boolean(x.source));
 
-      if (campaign.media_group_mode === 'keep') {
+        let picked: any[] = [];
+
+        if (campaign.media_group_mode === 'keep') {
         const albumSeen = new Set<string>();
         const units: Array<{ key: string; sort_order: number; rows: any[]; score: number }> = [];
         for (const row of normalized) {
@@ -138,58 +147,63 @@ export async function generateQueueForCampaign(campaignId?: string) {
 
         units.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
         picked = units.slice(0, campaign.batch_size).map((u) => u.rows[0]);
-      } else {
+        } else {
         const sortable = normalized.map((row) => ({
           ...row,
           score: queueCounts.get(row.source.id) || 0
         }));
         sortable.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
         picked = sortable.slice(0, campaign.batch_size).map((x) => x.source);
-      }
+        }
 
-      const rows = picked.map((source: any) => ({
-        campaign_id: campaign.id,
-        source_message_id: source.id,
-        scheduled_at: scheduledAt,
-        target_chat_id: campaign.target_group_id ? campaign.target_group_id : 0,
-        target_message_thread_id: null
-      }));
+        const rows = picked.map((source: any) => ({
+          campaign_id: campaign.id,
+          source_message_id: source.id,
+          scheduled_at: scheduledAt,
+          target_chat_id: campaign.target_group_id ? campaign.target_group_id : 0,
+          target_message_thread_id: null
+        }));
 
       // Resolve target chat/thread from referenced records.
-      const { data: targetGroup } = await supabase
-        .from('telegram_groups')
-        .select('chat_id')
-        .eq('id', campaign.target_group_id)
-        .single();
-      const targetChatId = targetGroup?.chat_id;
-      if (!targetChatId) {
-        summary.skipped_no_target_group += 1;
-        continue;
-      }
-
-      if (campaign.target_topic_id) {
-        const { data: topic } = await supabase
-          .from('topics')
-          .select('message_thread_id')
-          .eq('id', campaign.target_topic_id)
+        const { data: targetGroup } = await supabase
+          .from('telegram_groups')
+          .select('chat_id')
+          .eq('id', campaign.target_group_id)
           .single();
-        for (const r of rows) {
-          r.target_chat_id = targetChatId;
-          r.target_message_thread_id = topic?.message_thread_id ?? null;
+        const targetChatId = targetGroup?.chat_id;
+        if (!targetChatId) {
+          summary.skipped_no_target_group += 1;
+          continue;
         }
-      } else {
-        for (const r of rows) r.target_chat_id = targetChatId;
-      }
 
-      if (rows.length) {
-        const { error: insertError } = await supabase.from('queue_items').insert(rows);
-        if (insertError) throw insertError;
-        summary.items_created += rows.length;
+        if (campaign.target_topic_id) {
+          const { data: topic } = await supabase
+            .from('topics')
+            .select('message_thread_id')
+            .eq('id', campaign.target_topic_id)
+            .single();
+          for (const r of rows) {
+            r.target_chat_id = targetChatId;
+            r.target_message_thread_id = topic?.message_thread_id ?? null;
+          }
+        } else {
+          for (const r of rows) r.target_chat_id = targetChatId;
+        }
+
+        if (rows.length) {
+          const { data: insertedRows, error: insertError } = await supabase
+            .from('queue_items')
+            .upsert(rows, { onConflict: 'campaign_id,scheduled_at,source_message_id', ignoreDuplicates: true })
+            .select('id');
+          if (insertError) throw insertError;
+          summary.items_created += insertedRows?.length || 0;
+        }
       }
     }
+    return summary;
+  } finally {
+    isGeneratingQueue = false;
   }
-
-  return summary;
 }
 
 async function markFailed(itemId: string, errorMessage: string, retryCount: number, retryAfterSeconds?: number) {
