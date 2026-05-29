@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   Users,
   Shield,
+  WandSparkles,
+  Activity,
   Hash,
   Inbox,
   Megaphone,
@@ -16,6 +18,8 @@ import {
 
 const links = [
   { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể', Icon: LayoutDashboard },
+  { href: '/setup', label: 'Setup nhanh', hint: 'Nguồn -> Đích -> Chạy', Icon: WandSparkles },
+  { href: '/monitor', label: 'Giám sát', hint: 'Queue + logs nhanh', Icon: Activity },
   { href: '/groups', label: 'Nhóm', hint: 'Kênh và diễn đàn', Icon: Users },
   { href: '/admins', label: 'Admin', hint: 'Quyền bot riêng tư', Icon: Shield },
   { href: '/topics', label: 'Chủ đề', hint: 'Ánh xạ thread', Icon: Hash },

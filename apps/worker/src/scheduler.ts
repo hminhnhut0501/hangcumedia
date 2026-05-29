@@ -1,6 +1,6 @@
 import { env } from './config.js';
 import { logger } from './logger.js';
-import { processDueQueueItems } from './queue.js';
+import { generateQueueForCampaign, processDueQueueItems } from './queue.js';
 
 export function startScheduler() {
   const intervalMs = env.SCHEDULER_TICK_SECONDS * 1000;
@@ -8,6 +8,8 @@ export function startScheduler() {
 
   setInterval(async () => {
     try {
+      // Auto-generate queue for active campaigns before processing due items.
+      await generateQueueForCampaign();
       await processDueQueueItems();
     } catch (e) {
       logger.error('Scheduler tick failed', e);
