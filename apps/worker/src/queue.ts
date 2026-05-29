@@ -6,6 +6,15 @@ import { copyMessage, forwardMessage } from './telegram.js';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function generateQueueForCampaign(campaignId?: string) {
+  const summary = {
+    campaigns_processed: 0,
+    slots_checked: 0,
+    items_created: 0,
+    skipped_no_sources: 0,
+    skipped_no_target_group: 0,
+    skipped_existing_slot: 0
+  };
+
   const now = DateTime.now();
   let query = supabase.from('campaigns').select('*').eq('status', 'active');
   if (campaignId) query = query.eq('id', campaignId);
@@ -13,6 +22,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
   if (error || !campaigns) throw error;
 
   for (const campaign of campaigns) {
+    summary.campaigns_processed += 1;
     const runTimes: string[] = campaign.run_times ?? ['21:00'];
     const { data: sources } = await supabase
       .from('campaign_sources')
@@ -20,9 +30,13 @@ export async function generateQueueForCampaign(campaignId?: string) {
       .eq('campaign_id', campaign.id)
       .order('sort_order', { ascending: true });
 
-    if (!sources?.length) continue;
+    if (!sources?.length) {
+      summary.skipped_no_sources += 1;
+      continue;
+    }
 
     for (const time of runTimes) {
+      summary.slots_checked += 1;
       const [h, m] = time.split(':').map(Number);
       const scheduledAt = now.set({ hour: h, minute: m, second: 0, millisecond: 0 }).toUTC().toISO();
       const { data: existed } = await supabase
@@ -31,7 +45,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
         .eq('campaign_id', campaign.id)
         .eq('scheduled_at', scheduledAt!)
         .limit(1);
-      if (existed && existed.length > 0) continue;
+      if (existed && existed.length > 0) {
+        summary.skipped_existing_slot += 1;
+        continue;
+      }
 
       const batch = sources.slice(0, campaign.batch_size);
       const rows = batch.map((item: any) => ({
@@ -49,7 +66,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
         .eq('id', campaign.target_group_id)
         .single();
       const targetChatId = targetGroup?.chat_id;
-      if (!targetChatId) continue;
+      if (!targetChatId) {
+        summary.skipped_no_target_group += 1;
+        continue;
+      }
 
       if (campaign.target_topic_id) {
         const { data: topic } = await supabase
@@ -65,9 +85,15 @@ export async function generateQueueForCampaign(campaignId?: string) {
         for (const r of rows) r.target_chat_id = targetChatId;
       }
 
-      if (rows.length) await supabase.from('queue_items').insert(rows);
+      if (rows.length) {
+        const { error: insertError } = await supabase.from('queue_items').insert(rows);
+        if (insertError) throw insertError;
+        summary.items_created += rows.length;
+      }
     }
   }
+
+  return summary;
 }
 
 async function markFailed(itemId: string, errorMessage: string, retryCount: number, retryAfterSeconds?: number) {

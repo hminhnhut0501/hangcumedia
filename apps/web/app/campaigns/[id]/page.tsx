@@ -16,6 +16,7 @@ export default function CampaignDetailPage() {
   const [topics, setTopics] = useState<any[]>([]);
   const [savingConfig, setSavingConfig] = useState(false);
   const [notice, setNotice] = useState('');
+  const [queueNotice, setQueueNotice] = useState('');
   const [configForm, setConfigForm] = useState<any>(null);
   const [selected, setSelected] = useState('');
 
@@ -94,8 +95,21 @@ export default function CampaignDetailPage() {
     <AppShell
       title={campaign?.name || 'Chi tiết chiến dịch'}
       subtitle="Thêm nguồn nội dung, quản lý thứ tự và generate queue cho chiến dịch này."
-      actions={<button className="btn" onClick={async () => { await workerPost('/api/queue/generate', { campaignId: id }); }}>Generate Queue</button>}
+      actions={<button className="btn" onClick={async () => {
+        setQueueNotice('');
+        try {
+          const result = await workerPost('/api/queue/generate', { campaignId: id });
+          const s = result?.summary;
+          setQueueNotice(
+            `Generate queue xong: created=${s?.items_created ?? 0}, slots=${s?.slots_checked ?? 0}, ` +
+            `skip_no_sources=${s?.skipped_no_sources ?? 0}, skip_existing_slot=${s?.skipped_existing_slot ?? 0}`
+          );
+        } catch (err: any) {
+          setQueueNotice(`Generate queue lỗi: ${err.message}`);
+        }
+      }}>Generate Queue</button>}
     >
+      {queueNotice ? <section className="card"><p className="text-sm text-zinc-300">{queueNotice}</p></section> : null}
       <section className="card fade-up">
         <div className="grid gap-3 md:grid-cols-3">
           <p><span className="text-zinc-400">Chế độ:</span> {campaign?.copy_mode}/{campaign?.media_group_mode}</p>

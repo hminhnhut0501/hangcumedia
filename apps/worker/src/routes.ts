@@ -156,8 +156,8 @@ export function registerRoutes(app: Express) {
   });
 
   app.post('/api/queue/generate', requireAdmin, async (req, res) => {
-    await generateQueueForCampaign(req.body?.campaignId);
-    res.json({ ok: true });
+    const summary = await generateQueueForCampaign(req.body?.campaignId);
+    res.json({ ok: true, summary });
   });
 
   app.post('/api/queue/:id/retry', requireAdmin, async (req, res) => {
