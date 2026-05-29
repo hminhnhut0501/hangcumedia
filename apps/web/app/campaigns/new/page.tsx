@@ -25,6 +25,8 @@ export default function CampaignNewPage() {
     random_delay_seconds: 0,
     status: 'active'
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -39,6 +41,8 @@ export default function CampaignNewPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitting(true);
+    setNotice('');
     const payload = {
       ...form,
       source_group_id: form.source_group_id || null,
@@ -49,8 +53,33 @@ export default function CampaignNewPage() {
       runs_per_day: Number(form.runs_per_day),
       random_delay_seconds: Number(form.random_delay_seconds)
     };
-    const { data } = await supabase.from('campaigns').insert(payload).select('*').single();
-    router.push(`/campaigns/${data.id}`);
+
+    // Backward-compatible insert: if DB has not run newer migration yet, retry without caption fields.
+    const first = await supabase.from('campaigns').insert(payload).select('*').single();
+    if (first.error) {
+      const msg = first.error.message || '';
+      const missingCaptionCols = msg.includes('caption_mode') || msg.includes('custom_caption');
+      if (missingCaptionCols) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.caption_mode;
+        delete legacyPayload.custom_caption;
+        const second = await supabase.from('campaigns').insert(legacyPayload).select('*').single();
+        setSubmitting(false);
+        if (second.error || !second.data) {
+          setNotice(`Lỗi tạo chiến dịch: ${second.error?.message || 'Không rõ nguyên nhân'}`);
+          return;
+        }
+        setNotice('Đã tạo chiến dịch. Lưu ý: DB chưa có cột caption_mode/custom_caption, hãy chạy migration mới.');
+        router.push(`/campaigns/${second.data.id}`);
+        return;
+      }
+      setSubmitting(false);
+      setNotice(`Lỗi tạo chiến dịch: ${msg}`);
+      return;
+    }
+
+    setSubmitting(false);
+    router.push(`/campaigns/${first.data.id}`);
   }
 
   return (
@@ -164,8 +193,9 @@ export default function CampaignNewPage() {
         </div>
 
         <div className="flex justify-end">
-          <button className="btn">Tạo chiến dịch</button>
+          <button className="btn" disabled={submitting}>{submitting ? 'Đang tạo...' : 'Tạo chiến dịch'}</button>
         </div>
+        {notice ? <p className="text-sm text-zinc-300">{notice}</p> : null}
       </form>
     </AppShell>
   );
