@@ -156,14 +156,22 @@ export default function SetupPage() {
   return (
     <AppShell title="Setup nhanh" subtitle="Flow mới: Nguồn -> Đích -> Luật gửi -> Bật chạy">
       <section className="card fade-up">
+        <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-300 transition-all duration-500" style={{ width: `${(step / 4) * 100}%` }} />
+        </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          {[1, 2, 3, 4].map((n) => (
+          {[
+            { n: 1, label: 'Nguồn' },
+            { n: 2, label: 'Đích' },
+            { n: 3, label: 'Luật gửi' },
+            { n: 4, label: 'Chạy' }
+          ].map((x) => (
             <button
-              key={n}
-              className={`btn-secondary ${step === n ? 'bg-white/20' : ''}`}
-              onClick={() => setStep(n as Step)}
+              key={x.n}
+              className={`step-pill ${step === x.n ? 'active' : ''}`}
+              onClick={() => setStep(x.n as Step)}
             >
-              Bước {n}
+              Bước {x.n} - {x.label}
             </button>
           ))}
         </div>
@@ -285,7 +293,7 @@ export default function SetupPage() {
         </section>
       ) : null}
 
-      {notice ? <section className="card"><p className="text-sm text-zinc-300">{notice}</p></section> : null}
+      {notice ? <section className="card"><p className="notice text-sm">{notice}</p></section> : null}
     </AppShell>
   );
 }
