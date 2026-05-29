@@ -45,6 +45,7 @@ export default function CampaignsPage() {
                   <td>{row.telegram_groups?.title || '-'}</td><td>{(row.run_times || []).join(', ')}</td><td>{row.batch_size}</td><td>{row.copy_mode}/{row.media_group_mode}</td>
                   <td><span className={statusClass(row.status)}>{row.status}</span></td>
                   <td className="flex gap-2 py-2">
+                    <Link className="btn-secondary" href={`/campaigns/${row.id}`}>Sửa</Link>
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); load(); }}>Tạm dừng</button>
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); load(); }}>Tiếp tục</button>
                     <button className="btn-secondary" onClick={async () => {

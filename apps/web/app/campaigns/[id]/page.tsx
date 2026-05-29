@@ -12,17 +12,43 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<any>(null);
   const [sources, setSources] = useState<any[]>([]);
   const [allMsgs, setAllMsgs] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [configForm, setConfigForm] = useState<any>(null);
   const [selected, setSelected] = useState('');
 
   async function load() {
-    const [c, s, m] = await Promise.all([
+    const [c, s, m, g, t] = await Promise.all([
       supabase.from('campaigns').select('*').eq('id', id).single(),
       supabase.from('campaign_sources').select('*,source_messages(*)').eq('campaign_id', id).order('sort_order'),
-      supabase.from('source_messages').select('*').order('created_at', { ascending: false }).limit(300)
+      supabase.from('source_messages').select('*').order('created_at', { ascending: false }).limit(300),
+      supabase.from('telegram_groups').select('*').order('title'),
+      supabase.from('topics').select('*').order('name')
     ]);
     setCampaign(c.data);
+    if (c.data) {
+      setConfigForm({
+        name: c.data.name || '',
+        target_group_id: c.data.target_group_id || '',
+        target_topic_id: c.data.target_topic_id || '',
+        copy_mode: c.data.copy_mode || 'copy',
+        caption_mode: c.data.caption_mode || 'original',
+        custom_caption: c.data.custom_caption || '',
+        media_group_mode: c.data.media_group_mode || 'keep',
+        batch_size: c.data.batch_size || 1,
+        runs_per_day: c.data.runs_per_day || 1,
+        run_times: (c.data.run_times || []).join(','),
+        timezone: c.data.timezone || 'Asia/Ho_Chi_Minh',
+        random_delay_seconds: c.data.random_delay_seconds || 0,
+        status: c.data.status || 'active'
+      });
+    }
     setSources(s.data || []);
     setAllMsgs(m.data || []);
+    setGroups(g.data || []);
+    setTopics(t.data || []);
   }
 
   useEffect(() => { if (id) load(); }, [id]);
@@ -31,6 +57,36 @@ export default function CampaignDetailPage() {
     if (!selected) return;
     await supabase.from('campaign_sources').insert({ campaign_id: id, source_message_id: selected, sort_order: sources.length });
     setSelected('');
+    load();
+  }
+
+  async function saveConfig(e: React.FormEvent) {
+    e.preventDefault();
+    if (!configForm) return;
+    setSavingConfig(true);
+    setNotice('');
+    const payload: any = {
+      name: configForm.name,
+      target_group_id: configForm.target_group_id || null,
+      target_topic_id: configForm.target_topic_id || null,
+      copy_mode: configForm.copy_mode,
+      caption_mode: configForm.caption_mode,
+      custom_caption: configForm.caption_mode === 'custom' ? (configForm.custom_caption || null) : null,
+      media_group_mode: configForm.media_group_mode,
+      batch_size: Number(configForm.batch_size),
+      runs_per_day: Number(configForm.runs_per_day),
+      run_times: String(configForm.run_times).split(',').map((s) => s.trim()).filter(Boolean),
+      timezone: configForm.timezone,
+      random_delay_seconds: Number(configForm.random_delay_seconds),
+      status: configForm.status
+    };
+    const { error } = await supabase.from('campaigns').update(payload).eq('id', id);
+    setSavingConfig(false);
+    if (error) {
+      setNotice(`Lỗi cập nhật: ${error.message}`);
+      return;
+    }
+    setNotice('Đã cập nhật chiến dịch.');
     load();
   }
 
@@ -47,6 +103,44 @@ export default function CampaignDetailPage() {
           <p><span className="text-zinc-400">Khung giờ:</span> {(campaign?.run_times || []).join(', ')}</p>
         </div>
       </section>
+
+      {configForm ? (
+        <form className="card fade-up space-y-3" onSubmit={saveConfig}>
+          <h2 className="text-lg font-semibold text-zinc-100">Sửa cấu hình chiến dịch</h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input className="input" value={configForm.name} onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })} />
+            <select className="input" value={configForm.target_group_id} onChange={(e) => setConfigForm({ ...configForm, target_group_id: e.target.value })}>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+            </select>
+            <select className="input" value={configForm.target_topic_id || ''} onChange={(e) => setConfigForm({ ...configForm, target_topic_id: e.target.value })}>
+              <option value="">General chat (không topic)</option>
+              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <select className="input" value={configForm.copy_mode} onChange={(e) => setConfigForm({ ...configForm, copy_mode: e.target.value })}>
+              <option value="copy">copy</option><option value="forward">forward</option>
+            </select>
+            <select className="input" value={configForm.caption_mode} onChange={(e) => setConfigForm({ ...configForm, caption_mode: e.target.value })}>
+              <option value="original">Giữ caption gốc</option><option value="custom">Caption mới (copy)</option>
+            </select>
+            <input className="input" placeholder="Caption mới" value={configForm.custom_caption} onChange={(e) => setConfigForm({ ...configForm, custom_caption: e.target.value })} />
+            <select className="input" value={configForm.media_group_mode} onChange={(e) => setConfigForm({ ...configForm, media_group_mode: e.target.value })}>
+              <option value="keep">keep</option><option value="split">split</option>
+            </select>
+            <input className="input" type="number" min={1} value={configForm.batch_size} onChange={(e) => setConfigForm({ ...configForm, batch_size: e.target.value })} />
+            <input className="input" type="number" min={1} value={configForm.runs_per_day} onChange={(e) => setConfigForm({ ...configForm, runs_per_day: e.target.value })} />
+            <input className="input" value={configForm.run_times} onChange={(e) => setConfigForm({ ...configForm, run_times: e.target.value })} />
+            <input className="input" value={configForm.timezone} onChange={(e) => setConfigForm({ ...configForm, timezone: e.target.value })} />
+            <input className="input" type="number" min={0} value={configForm.random_delay_seconds} onChange={(e) => setConfigForm({ ...configForm, random_delay_seconds: e.target.value })} />
+            <select className="input" value={configForm.status} onChange={(e) => setConfigForm({ ...configForm, status: e.target.value })}>
+              <option value="active">active</option><option value="paused">paused</option><option value="archived">archived</option>
+            </select>
+          </div>
+          <div className="flex justify-end">
+            <button className="btn" disabled={savingConfig}>{savingConfig ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
+          </div>
+          {notice ? <p className="text-sm text-zinc-300">{notice}</p> : null}
+        </form>
+      ) : null}
 
       <section className="card fade-up">
         <h2 className="text-lg font-semibold text-zinc-100">Thêm source message</h2>
