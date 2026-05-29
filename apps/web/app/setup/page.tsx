@@ -18,6 +18,7 @@ export default function SetupPage() {
   const [sourceGroupId, setSourceGroupId] = useState('');
   const [scan, setScan] = useState({ chat_id: '', from_message_id: '', to_message_id: '' });
   const [scanResult, setScanResult] = useState<any>(null);
+  const [preflightResult, setPreflightResult] = useState<any>(null);
 
   const [targetGroupId, setTargetGroupId] = useState('');
   const [targetTopicId, setTargetTopicId] = useState('');
@@ -153,8 +154,16 @@ export default function SetupPage() {
         }
       }
 
+      const preflight = await workerPost(`/api/campaigns/${campaign.id}/preflight`, {});
+      setPreflightResult(preflight);
+      if (!preflight?.ok) {
+        const issueText = (preflight?.issues || []).join(' | ') || 'Preflight không đạt.';
+        throw new Error(`Preflight fail: ${issueText}`);
+      }
+
       const generate = await workerPost('/api/queue/generate', { campaignId: campaign.id });
-      setNotice(`Hoàn tất. Campaign đã tạo và queue đã generate (created=${generate?.summary?.items_created ?? 0}).`);
+      const warningText = (preflight?.warnings || []).length ? ` Cảnh báo: ${(preflight.warnings || []).join(' | ')}` : '';
+      setNotice(`Hoàn tất. Campaign đã tạo và queue đã generate (created=${generate?.summary?.items_created ?? 0}).${warningText}`);
       setStep(4);
     } catch (err: any) {
       setNotice(`Lỗi khởi tạo flow: ${err.message}`);
@@ -345,6 +354,14 @@ export default function SetupPage() {
             <p><b>Khung giờ:</b> {summary.runTimes}</p>
             <p><b>Batch:</b> {summary.batch}</p>
           </div>
+          {preflightResult ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-1">
+              <p><b>Preflight:</b> {preflightResult.ok ? 'OK' : 'FAILED'}</p>
+              <p><b>Source ready/link_only:</b> {preflightResult.stats?.ready_sources ?? 0}/{preflightResult.stats?.link_only_sources ?? 0}</p>
+              {(preflightResult.warnings || []).map((w: string, i: number) => <p key={`w-${i}`} className="text-amber-300">Cảnh báo: {w}</p>)}
+              {(preflightResult.issues || []).map((x: string, i: number) => <p key={`i-${i}`} className="text-rose-300">Lỗi: {x}</p>)}
+            </div>
+          ) : null}
 
           <div className="flex justify-between">
             <button className="btn-secondary" onClick={() => setStep(3)}>Quay lại</button>

@@ -17,6 +17,7 @@ export default function CampaignDetailPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [notice, setNotice] = useState('');
   const [queueNotice, setQueueNotice] = useState('');
+  const [preflightNotice, setPreflightNotice] = useState('');
   const [configForm, setConfigForm] = useState<any>(null);
   const [selected, setSelected] = useState('');
 
@@ -95,20 +96,40 @@ export default function CampaignDetailPage() {
     <AppShell
       title={campaign?.name || 'Chi tiết chiến dịch'}
       subtitle="Thêm nguồn nội dung, quản lý thứ tự và generate queue cho chiến dịch này."
-      actions={<button className="btn" onClick={async () => {
-        setQueueNotice('');
-        try {
-          const result = await workerPost('/api/queue/generate', { campaignId: id });
-          const s = result?.summary;
-          setQueueNotice(
-            `Generate queue xong: created=${s?.items_created ?? 0}, slots=${s?.slots_checked ?? 0}, ` +
-            `skip_no_sources=${s?.skipped_no_sources ?? 0}, skip_existing_slot=${s?.skipped_existing_slot ?? 0}`
-          );
-        } catch (err: any) {
-          setQueueNotice(`Generate queue lỗi: ${err.message}`);
-        }
-      }}>Generate Queue</button>}
+      actions={<div className="flex gap-2">
+        <button className="btn-secondary" onClick={async () => {
+          setPreflightNotice('');
+          try {
+            const p = await workerPost(`/api/campaigns/${id}/preflight`, {});
+            const warn = (p?.warnings || []).length ? ` | warnings: ${(p.warnings || []).join(' ; ')}` : '';
+            const issues = (p?.issues || []).length ? ` | issues: ${(p.issues || []).join(' ; ')}` : '';
+            setPreflightNotice(`Preflight ${p?.ok ? 'OK' : 'FAILED'} | ready=${p?.stats?.ready_sources ?? 0} link_only=${p?.stats?.link_only_sources ?? 0}${warn}${issues}`);
+          } catch (err: any) {
+            setPreflightNotice(`Preflight lỗi: ${err.message}`);
+          }
+        }}>Preflight</button>
+        <button className="btn" onClick={async () => {
+          setQueueNotice('');
+          try {
+            const p = await workerPost(`/api/campaigns/${id}/preflight`, {});
+            if (!p?.ok) {
+              setQueueNotice(`Generate bị chặn do preflight fail: ${(p?.issues || []).join(' | ')}`);
+              return;
+            }
+            const result = await workerPost('/api/queue/generate', { campaignId: id });
+            const s = result?.summary;
+            const warn = (p?.warnings || []).length ? ` | warnings: ${(p.warnings || []).join(' ; ')}` : '';
+            setQueueNotice(
+              `Generate queue xong: created=${s?.items_created ?? 0}, slots=${s?.slots_checked ?? 0}, ` +
+              `skip_no_sources=${s?.skipped_no_sources ?? 0}, skip_existing_slot=${s?.skipped_existing_slot ?? 0}${warn}`
+            );
+          } catch (err: any) {
+            setQueueNotice(`Generate queue lỗi: ${err.message}`);
+          }
+        }}>Generate Queue</button>
+      </div>}
     >
+      {preflightNotice ? <section className="card"><p className="text-sm text-zinc-300">{preflightNotice}</p></section> : null}
       {queueNotice ? <section className="card"><p className="text-sm text-zinc-300">{queueNotice}</p></section> : null}
       <section className="card fade-up">
         <div className="grid gap-3 md:grid-cols-3">

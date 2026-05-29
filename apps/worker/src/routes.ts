@@ -15,6 +15,59 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export function registerRoutes(app: Express) {
+  async function runCampaignPreflight(campaignId: string) {
+    const issues: string[] = [];
+    const warnings: string[] = [];
+
+    const { data: campaign } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
+    if (!campaign) throw new Error('campaign not found');
+
+    const { data: targetGroup } = await supabase
+      .from('telegram_groups')
+      .select('*')
+      .eq('id', campaign.target_group_id)
+      .single();
+    if (!targetGroup?.chat_id) {
+      issues.push('Nhóm đích chưa có chat_id hợp lệ.');
+    } else {
+      try {
+        await getChat(bot, Number(targetGroup.chat_id));
+        const admins = await getChatAdministrators(bot, Number(targetGroup.chat_id));
+        const botAdmin = admins.some((a: any) => a.user?.is_bot);
+        if (!botAdmin) warnings.push('Bot chưa có admin trong nhóm đích. Có thể gửi được nhưng dễ thiếu quyền topic.');
+      } catch (err: any) {
+        issues.push(`Bot không truy cập được nhóm đích (${targetGroup.chat_id}): ${err?.message || 'unknown'}`);
+      }
+    }
+
+    const { data: rows } = await supabase
+      .from('campaign_sources')
+      .select('source_messages(status)')
+      .eq('campaign_id', campaignId);
+    const totalSources = rows?.length || 0;
+    const linkOnlyCount = (rows || []).filter((r: any) => r.source_messages?.status === 'link_only').length;
+    const readyCount = totalSources - linkOnlyCount;
+
+    if (totalSources === 0) {
+      issues.push('Campaign chưa có source message.');
+    } else if (readyCount === 0) {
+      warnings.push('Toàn bộ source hiện là link_only. Có thể gặp lỗi "message to copy not found".');
+    } else if (linkOnlyCount > 0) {
+      warnings.push(`Có ${linkOnlyCount}/${totalSources} source là link_only. Nên forward bài gốc cho bot để tăng tỷ lệ gửi thành công.`);
+    }
+
+    return {
+      ok: issues.length === 0,
+      issues,
+      warnings,
+      stats: { total_sources: totalSources, ready_sources: readyCount, link_only_sources: linkOnlyCount }
+    };
+  }
+
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'worker' });
   });
@@ -158,6 +211,15 @@ export function registerRoutes(app: Express) {
   app.post('/api/queue/generate', requireAdmin, async (req, res) => {
     const summary = await generateQueueForCampaign(req.body?.campaignId);
     res.json({ ok: true, summary });
+  });
+
+  app.post('/api/campaigns/:id/preflight', requireAdmin, async (req, res) => {
+    try {
+      const result = await runCampaignPreflight(req.params.id);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ ok: false, error: err?.message || 'Preflight failed' });
+    }
   });
 
   app.post('/api/queue/:id/retry', requireAdmin, async (req, res) => {
