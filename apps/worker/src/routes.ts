@@ -255,6 +255,29 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   });
 
+  app.post('/api/queue/cleanup', requireAdmin, async (req, res) => {
+    const keepDays = Math.max(1, Number(req.body?.keepDays || 7));
+    const cutoff = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from('queue_items')
+      .delete()
+      .in('status', ['sent', 'skipped'])
+      .lt('created_at', cutoff);
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    res.json({ ok: true, keepDays });
+  });
+
+  app.post('/api/logs/cleanup', requireAdmin, async (req, res) => {
+    const keepDays = Math.max(1, Number(req.body?.keepDays || 7));
+    const cutoff = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from('send_logs')
+      .delete()
+      .lt('created_at', cutoff);
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    res.json({ ok: true, keepDays });
+  });
+
   app.post('/api/campaigns/:id/pause', requireAdmin, async (req, res) => {
     await supabase.from('campaigns').update({ status: 'paused' }).eq('id', req.params.id);
     res.json({ ok: true });
