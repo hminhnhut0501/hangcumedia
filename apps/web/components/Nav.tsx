@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
+  Shield,
   Hash,
   Inbox,
   Megaphone,
@@ -16,6 +17,7 @@ import {
 const links = [
   { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể', Icon: LayoutDashboard },
   { href: '/groups', label: 'Nhóm', hint: 'Kênh và diễn đàn', Icon: Users },
+  { href: '/admins', label: 'Admin', hint: 'Quyền bot riêng tư', Icon: Shield },
   { href: '/topics', label: 'Chủ đề', hint: 'Ánh xạ thread', Icon: Hash },
   { href: '/inbox', label: 'Hộp nguồn', hint: 'Nạp nội dung', Icon: Inbox },
   { href: '/campaigns', label: 'Chiến dịch', hint: 'Lịch phân phối', Icon: Megaphone },

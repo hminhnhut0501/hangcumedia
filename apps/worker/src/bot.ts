@@ -6,6 +6,16 @@ import { handleAlbumMessage } from './album.js';
 
 export const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
+async function isTelegramAdminUser(telegramUserId?: number): Promise<boolean> {
+  if (!telegramUserId) return false;
+  const { data } = await supabase
+    .from('admins')
+    .select('id')
+    .eq('telegram_user_id', telegramUserId)
+    .maybeSingle();
+  return !!data;
+}
+
 bot.start(async (ctx) => ctx.reply('Bot is running. Use /id to inspect chat metadata.'));
 
 bot.command('id', async (ctx) => {
@@ -54,9 +64,16 @@ bot.on('message', async (ctx) => {
 
   const isBackupGroup = group?.type === 'backup';
   const isPrivateAdminForward = ctx.chat.type === 'private' && !!msg.forward_origin;
+  const fromUserId = (ctx.from as any)?.id as number | undefined;
+  const isAdminPrivateForward = isPrivateAdminForward && await isTelegramAdminUser(fromUserId);
 
-  if (isBackupGroup || isPrivateAdminForward) {
+  if (isPrivateAdminForward && !isAdminPrivateForward) {
+    await ctx.reply('Bạn không có quyền import nội dung. Vui lòng liên hệ quản trị viên.');
+    return;
+  }
+
+  if (isBackupGroup || isAdminPrivateForward) {
     await importMessage(msg, isBackupGroup ? 'backup_group' : 'forward_admin');
-    if (msg.media_group_id) handleAlbumMessage(ctx.chat.id, msg.media_group_id);
+    if (msg.media_group_id) handleAlbumMessage(msg.chat.id, msg.media_group_id);
   }
 });
