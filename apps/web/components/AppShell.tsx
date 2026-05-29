@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Search, Sparkles } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { Nav } from '@/components/Nav';
 
@@ -33,17 +32,6 @@ export function AppShell({ title, subtitle, actions, children }: {
                   {subtitle ? <p className="mt-1 text-sm text-zinc-400">{subtitle}</p> : null}
                 </div>
                 <div className="flex items-center gap-2">{actions}</div>
-              </div>
-
-              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
-                <div className="input flex items-center gap-2 !py-2">
-                  <Search size={15} className="text-zinc-500" />
-                  <span className="text-sm text-zinc-500">Tìm nhanh chiến dịch, message, queue...</span>
-                </div>
-                <button className="btn-secondary inline-flex items-center gap-2">
-                  <Sparkles size={14} />
-                  Quick Action
-                </button>
               </div>
 
               <div className="mt-4 lg:hidden">
