@@ -9,10 +9,28 @@ export default function MonitorPage() {
   const [queue, setQueue] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
 
+  const formatCampaignTime = (iso: string, timezone?: string) => {
+    const tz = timezone || 'Asia/Ho_Chi_Minh';
+    try {
+      return `${new Intl.DateTimeFormat('vi-VN', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(new Date(iso))} (${tz})`;
+    } catch {
+      return new Date(iso).toLocaleString();
+    }
+  };
+
   async function load() {
     const [q, l] = await Promise.all([
-      supabase.from('queue_items').select('*,campaigns(name)').order('created_at', { ascending: false }).limit(100),
-      supabase.from('send_logs').select('*,campaigns(name)').order('created_at', { ascending: false }).limit(50)
+      supabase.from('queue_items').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(100),
+      supabase.from('send_logs').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(50)
     ]);
     setQueue(q.data || []);
     setLogs(l.data || []);
@@ -46,7 +64,7 @@ export default function MonitorPage() {
         </div>
         <div className="overflow-auto">
           <table className="table min-w-[900px]"><thead><tr><th>Campaign</th><th>Scheduled</th><th>Error</th><th>Retry</th><th>Action</th></tr></thead>
-            <tbody>{failed.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td>{new Date(f.scheduled_at).toLocaleString()}</td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); load(); }}>Retry</button></td></tr>)}</tbody>
+            <tbody>{failed.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td>{formatCampaignTime(f.scheduled_at, f.campaigns?.timezone)}</td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); load(); }}>Retry</button></td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -54,7 +72,7 @@ export default function MonitorPage() {
       <section className="card overflow-auto">
         <h3 className="section-title mb-3 text-lg font-semibold">Log gần nhất</h3>
         <table className="table min-w-[900px]"><thead><tr><th>Time</th><th>Campaign</th><th>Status</th><th>Error</th></tr></thead>
-          <tbody>{logs.map((l) => <tr key={l.id}><td>{new Date(l.created_at).toLocaleString()}</td><td>{l.campaigns?.name || '-'}</td><td>{l.status}</td><td className="max-w-[350px] truncate">{l.error_message || '-'}</td></tr>)}</tbody>
+          <tbody>{logs.map((l) => <tr key={l.id}><td>{formatCampaignTime(l.created_at, l.campaigns?.timezone)}</td><td>{l.campaigns?.name || '-'}</td><td>{l.status}</td><td className="max-w-[350px] truncate">{l.error_message || '-'}</td></tr>)}</tbody>
         </table>
       </section>
     </AppShell>

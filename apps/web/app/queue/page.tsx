@@ -10,9 +10,27 @@ export default function QueuePage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const formatCampaignTime = (iso: string, timezone?: string) => {
+    const tz = timezone || 'Asia/Ho_Chi_Minh';
+    try {
+      return `${new Intl.DateTimeFormat('vi-VN', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(new Date(iso))} (${tz})`;
+    } catch {
+      return new Date(iso).toLocaleString();
+    }
+  };
+
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('queue_items').select('*,campaigns(name)').order('created_at', { ascending: false }).limit(300);
+    const { data } = await supabase.from('queue_items').select('*,campaigns(name,timezone)').order('created_at', { ascending: false }).limit(300);
     setRows(data || []);
     setLoading(false);
   }
@@ -38,7 +56,7 @@ export default function QueuePage() {
         {!loading && rows.length > 0 ? (
           <table className="table min-w-[980px]">
             <thead><tr><th>Chiến dịch</th><th>Lịch gửi</th><th>Trạng thái</th><th>Retry</th><th>Lỗi</th><th>Thao tác</th></tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td>{new Date(row.scheduled_at).toLocaleString()}</td><td>{row.status}</td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
+            <tbody>{rows.map((row) => <tr key={row.id}><td>{row.campaigns?.name}</td><td>{formatCampaignTime(row.scheduled_at, row.campaigns?.timezone)}</td><td>{row.status}</td><td>{row.retry_count}</td><td className="max-w-[360px] truncate">{row.error_message || '-'}</td><td className="flex gap-2">
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/retry`, {}); load(); }}>Thử lại</button>
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/send-now`, {}); load(); }}>Gửi ngay</button>
               <button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${row.id}/skip`, {}); load(); }}>Bỏ qua</button>

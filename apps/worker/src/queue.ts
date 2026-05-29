@@ -53,7 +53,6 @@ export async function generateQueueForCampaign(campaignId?: string) {
     skipped_existing_slot: 0
   };
 
-  const now = DateTime.now();
   let query = supabase.from('campaigns').select('*').eq('status', 'active');
   if (campaignId) query = query.eq('id', campaignId);
   const { data: campaigns, error } = await query;
@@ -78,7 +77,11 @@ export async function generateQueueForCampaign(campaignId?: string) {
     for (const time of runTimes) {
       summary.slots_checked += 1;
       const [h, m] = time.split(':').map(Number);
-      const scheduledAt = now.set({ hour: h, minute: m, second: 0, millisecond: 0 }).toUTC().toISO();
+      const tz = campaign.timezone || 'Asia/Ho_Chi_Minh';
+      const baseInCampaignTz = DateTime.now().setZone(tz);
+      const scheduledLocal = baseInCampaignTz.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+      const scheduledAt = scheduledLocal.toUTC().toISO();
+      if (!scheduledAt) continue;
       const { data: existed } = await supabase
         .from('queue_items')
         .select('id')
