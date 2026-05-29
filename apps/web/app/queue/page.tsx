@@ -34,15 +34,15 @@ export default function QueuePage() {
 
   return (
     <AppShell
-      title="Queue Command Center"
-      subtitle="Track due items, recover failed deliveries and keep campaign execution stable."
-      actions={<button className="btn-secondary" onClick={load}>Refresh</button>}
+      title="Trung tâm hàng đợi"
+      subtitle="Theo dõi lịch gửi, xử lý lỗi và đảm bảo tiến độ phân phối nội dung ổn định."
+      actions={<button className="btn-secondary" onClick={load}>Làm mới</button>}
     >
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         {Object.entries(stats).map(([k, v]) => (
           <article key={k} className="card p-4">
-            <p className="text-xs uppercase tracking-[0.15em] text-slate-500">{k}</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{Number(v)}</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-slate-400">{k}</p>
+            <p className="kpi-value mt-2 text-2xl font-semibold text-slate-100">{Number(v)}</p>
           </article>
         ))}
       </section>
@@ -51,12 +51,12 @@ export default function QueuePage() {
         <table className="table min-w-[980px]">
           <thead>
             <tr>
-              <th>Campaign</th>
-              <th>Scheduled</th>
-              <th>Status</th>
+              <th>Chiến dịch</th>
+              <th>Lịch gửi</th>
+              <th>Trạng thái</th>
               <th>Retry</th>
-              <th>Error</th>
-              <th>Actions</th>
+              <th>Lỗi</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -75,7 +75,7 @@ export default function QueuePage() {
                       load();
                     }}
                   >
-                    Retry
+                    Thử lại
                   </button>
                 </td>
               </tr>

@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { workerPost } from '@/lib/worker';
 
 function statusClass(status: string) {
-  if (status === 'active') return 'bg-emerald-100 text-emerald-700';
-  if (status === 'paused') return 'bg-amber-100 text-amber-700';
-  return 'bg-slate-100 text-slate-600';
+  if (status === 'active') return 'bg-emerald-400/20 text-emerald-300';
+  if (status === 'paused') return 'bg-amber-400/20 text-amber-300';
+  return 'bg-slate-400/20 text-slate-300';
 }
 
 export default function CampaignsPage() {
@@ -28,28 +28,28 @@ export default function CampaignsPage() {
 
   return (
     <AppShell
-      title="Campaign Control"
-      subtitle="Plan delivery windows, target topics and execution modes for each content stream."
-      actions={<Link className="btn" href="/campaigns/new">Create Campaign</Link>}
+      title="Điều phối chiến dịch"
+      subtitle="Lập lịch gửi, chọn topic đích và kiểm soát chế độ copy/forward cho từng chiến dịch."
+      actions={<Link className="btn" href="/campaigns/new">Tạo chiến dịch</Link>}
     >
       <section className="card overflow-auto">
         <table className="table min-w-[900px]">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Target Group</th>
-              <th>Run Times</th>
+              <th>Tên</th>
+              <th>Nhóm đích</th>
+              <th>Khung giờ</th>
               <th>Batch</th>
-              <th>Mode</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Chế độ</th>
+              <th>Trạng thái</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
                 <td>
-                  <Link className="font-semibold text-cyan-700 hover:underline" href={`/campaigns/${row.id}`}>
+                  <Link className="font-semibold text-cyan-300 hover:underline" href={`/campaigns/${row.id}`}>
                     {row.name}
                   </Link>
                 </td>
@@ -63,24 +63,8 @@ export default function CampaignsPage() {
                   </span>
                 </td>
                 <td className="flex gap-2 py-2">
-                  <button
-                    className="btn-secondary"
-                    onClick={async () => {
-                      await workerPost(`/api/campaigns/${row.id}/pause`, {});
-                      load();
-                    }}
-                  >
-                    Pause
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    onClick={async () => {
-                      await workerPost(`/api/campaigns/${row.id}/resume`, {});
-                      load();
-                    }}
-                  >
-                    Resume
-                  </button>
+                  <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); load(); }}>Tạm dừng</button>
+                  <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); load(); }}>Tiếp tục</button>
                 </td>
               </tr>
             ))}

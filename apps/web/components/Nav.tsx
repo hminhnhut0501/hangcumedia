@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  { href: '/dashboard', label: 'Dashboard', hint: 'Overview' },
-  { href: '/groups', label: 'Groups', hint: 'Channels & Forums' },
-  { href: '/topics', label: 'Topics', hint: 'Thread Mapping' },
-  { href: '/inbox', label: 'Inbox', hint: 'Source Intake' },
-  { href: '/campaigns', label: 'Campaigns', hint: 'Delivery Playbooks' },
-  { href: '/queue', label: 'Queue', hint: 'Execution Timeline' },
-  { href: '/logs', label: 'Logs', hint: 'Audit Trail' },
-  { href: '/settings', label: 'Settings', hint: 'System & Access' }
+  { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể' },
+  { href: '/groups', label: 'Nhóm', hint: 'Kênh & Diễn đàn' },
+  { href: '/topics', label: 'Chủ đề', hint: 'Ánh xạ thread' },
+  { href: '/inbox', label: 'Hộp nguồn', hint: 'Nạp nội dung' },
+  { href: '/campaigns', label: 'Chiến dịch', hint: 'Kịch bản phân phối' },
+  { href: '/queue', label: 'Hàng đợi', hint: 'Lịch thực thi' },
+  { href: '/logs', label: 'Nhật ký', hint: 'Theo dõi & kiểm toán' },
+  { href: '/settings', label: 'Cài đặt', hint: 'Hệ thống & truy cập' }
 ];
 
 export function Nav() {
@@ -24,12 +24,12 @@ export function Nav() {
           href={link.href}
           className={`group block rounded-xl border p-3 transition ${
             pathname.startsWith(link.href)
-              ? 'border-cyan-300 bg-cyan-50 shadow-sm'
-              : 'border-slate-200 bg-white/80 hover:border-slate-300 hover:bg-white'
+              ? 'border-cyan-400/70 bg-cyan-400/10 shadow-sm'
+              : 'border-slate-600 bg-slate-900/50 hover:border-cyan-400/60 hover:bg-slate-900/80'
           }`}
         >
-          <p className="text-sm font-semibold text-slate-900">{link.label}</p>
-          <p className="text-xs text-slate-500">{link.hint}</p>
+          <p className="text-sm font-semibold text-slate-100">{link.label}</p>
+          <p className="text-xs text-slate-400">{link.hint}</p>
         </Link>
       ))}
     </nav>

@@ -28,48 +28,48 @@ export default function Dashboard() {
 
   const cards = useMemo(
     () => [
-      { label: 'Registered Groups', value: counts.groups, tone: 'text-cyan-700' },
-      { label: 'Mapped Topics', value: counts.topics, tone: 'text-teal-700' },
-      { label: 'Active Campaigns', value: counts.campaigns, tone: 'text-slate-800' },
-      { label: 'Pending Queue', value: counts.pending, tone: 'text-amber-700' },
-      { label: 'Failed Queue', value: counts.failed, tone: 'text-rose-700' }
+      { label: 'Nhóm đã đăng ký', value: counts.groups, tone: 'text-cyan-300' },
+      { label: 'Topic đã ánh xạ', value: counts.topics, tone: 'text-emerald-300' },
+      { label: 'Chiến dịch đang chạy', value: counts.campaigns, tone: 'text-slate-100' },
+      { label: 'Hàng đợi chờ gửi', value: counts.pending, tone: 'text-amber-300' },
+      { label: 'Hàng đợi lỗi', value: counts.failed, tone: 'text-rose-300' }
     ],
     [counts]
   );
 
   return (
     <AppShell
-      title="Operations Dashboard"
-      subtitle="High-level control room for ingestion, campaign planning and queue execution."
-      actions={<Link className="btn" href="/campaigns/new">New Campaign</Link>}
+      title="Bảng điều hành"
+      subtitle="Trung tâm theo dõi nạp nội dung, lập chiến dịch và thực thi hàng đợi."
+      actions={<Link className="btn" href="/campaigns/new">Tạo chiến dịch</Link>}
     >
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <article key={card.label} className="card">
-            <p className="text-xs uppercase tracking-[0.15em] text-slate-500">{card.label}</p>
-            <p className={`mt-2 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-slate-400">{card.label}</p>
+            <p className={`kpi-value mt-2 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
           </article>
         ))}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <article className="card">
-          <h3 className="text-lg font-semibold text-slate-900">Recommended Flow</h3>
-          <ol className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>1. Connect and register backup/main groups.</li>
-            <li>2. Sync or create topics for target forums.</li>
-            <li>3. Ingest source content into inbox, then select campaign sources.</li>
-            <li>4. Generate queue and monitor pending/failed states.</li>
+          <h3 className="text-lg font-semibold text-slate-100">Luồng vận hành đề xuất</h3>
+          <ol className="mt-3 space-y-2 text-sm text-slate-300">
+            <li>1. Kết nối bot và đăng ký nhóm backup/main.</li>
+            <li>2. Đồng bộ hoặc tạo topic cho nhóm đích.</li>
+            <li>3. Nạp nội dung vào hộp nguồn và chọn nguồn cho chiến dịch.</li>
+            <li>4. Tạo queue, theo dõi trạng thái chờ/lỗi và xử lý lại khi cần.</li>
           </ol>
         </article>
 
         <article className="card">
-          <h3 className="text-lg font-semibold text-slate-900">Quick Actions</h3>
+          <h3 className="text-lg font-semibold text-slate-100">Thao tác nhanh</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            <Link className="btn-secondary" href="/groups">Manage Groups</Link>
-            <Link className="btn-secondary" href="/topics">Map Topics</Link>
-            <Link className="btn-secondary" href="/inbox">Review Inbox</Link>
-            <Link className="btn-secondary" href="/queue">Open Queue Center</Link>
+            <Link className="btn-secondary" href="/groups">Quản lý nhóm</Link>
+            <Link className="btn-secondary" href="/topics">Ánh xạ topic</Link>
+            <Link className="btn-secondary" href="/inbox">Duyệt hộp nguồn</Link>
+            <Link className="btn-secondary" href="/queue">Mở trung tâm queue</Link>
           </div>
         </article>
       </section>
