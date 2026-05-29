@@ -19,14 +19,19 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="container max-w-md">
-      <h1 className="mb-4 text-2xl font-semibold">Admin Login</h1>
-      <form onSubmit={login} className="card space-y-3">
-        <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button className="btn" type="submit">Login</button>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </form>
+    <main className="app-bg flex min-h-screen items-center justify-center p-6">
+      <section className="panel-glass w-full max-w-md p-6 fade-up">
+        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Executive Ops Studio</p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-100">Welcome back</h1>
+        <p className="mt-1 text-sm text-slate-400">Sign in to manage Telegram content operations.</p>
+
+        <form onSubmit={login} className="mt-5 space-y-3">
+          <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button className="btn w-full" type="submit">Login to Console</button>
+          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        </form>
+      </section>
     </main>
   );
 }

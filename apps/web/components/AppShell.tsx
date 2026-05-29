@@ -33,6 +33,9 @@ export function AppShell({ title, subtitle, actions, children }: {
                 </div>
                 <div className="flex items-center gap-2">{actions}</div>
               </div>
+              <div className="mt-4 lg:hidden">
+                <Nav />
+              </div>
             </header>
 
             <main className="space-y-4">{children}</main>
