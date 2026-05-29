@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Search, Sparkles } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { Nav } from '@/components/Nav';
 
@@ -14,25 +15,37 @@ export function AppShell({ title, subtitle, actions, children }: {
     <AuthGuard>
       <div className="app-bg min-h-screen">
         <div className="mx-auto grid min-h-screen max-w-[1400px] grid-cols-1 gap-4 px-4 py-4 lg:grid-cols-[260px_1fr]">
-          <aside className="panel-glass hidden min-h-[calc(100vh-2rem)] p-4 lg:block">
-            <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Executive Ops Studio</p>
-              <h2 className="mt-2 text-lg font-semibold text-zinc-100">Trung tâm điều hành Telegram</h2>
-              <p className="mt-1 text-xs text-zinc-500">Quản trị tập trung, tốc độ vận hành media</p>
+          <aside className="panel hidden min-h-[calc(100vh-2rem)] p-4 lg:block">
+            <div className="mb-4 rounded-xl bg-white/[0.03] p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Executive Ops</p>
+              <h2 className="mt-2 section-title text-lg font-bold text-zinc-100">Telegram Studio</h2>
+              <p className="mt-1 text-xs text-zinc-500">UI v3 Hybrid</p>
             </div>
             <Nav />
           </aside>
 
           <div className="flex min-w-0 flex-col gap-4">
-            <header className="panel-glass p-4">
+            <header className="panel p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Vận hành</p>
-                  <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
+                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Vận hành</p>
+                  <h1 className="section-title text-2xl font-bold text-zinc-100">{title}</h1>
                   {subtitle ? <p className="mt-1 text-sm text-zinc-400">{subtitle}</p> : null}
                 </div>
                 <div className="flex items-center gap-2">{actions}</div>
               </div>
+
+              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
+                <div className="input flex items-center gap-2 !py-2">
+                  <Search size={15} className="text-zinc-500" />
+                  <span className="text-sm text-zinc-500">Tìm nhanh chiến dịch, message, queue...</span>
+                </div>
+                <button className="btn-secondary inline-flex items-center gap-2">
+                  <Sparkles size={14} />
+                  Quick Action
+                </button>
+              </div>
+
               <div className="mt-4 lg:hidden">
                 <Nav />
               </div>

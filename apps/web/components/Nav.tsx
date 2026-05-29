@@ -2,36 +2,50 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard,
+  Users,
+  Hash,
+  Inbox,
+  Megaphone,
+  ListOrdered,
+  ScrollText,
+  Settings
+} from 'lucide-react';
 
 const links = [
-  { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể' },
-  { href: '/groups', label: 'Nhóm', hint: 'Kênh & Diễn đàn' },
-  { href: '/topics', label: 'Chủ đề', hint: 'Ánh xạ thread' },
-  { href: '/inbox', label: 'Hộp nguồn', hint: 'Nạp nội dung' },
-  { href: '/campaigns', label: 'Chiến dịch', hint: 'Kịch bản phân phối' },
-  { href: '/queue', label: 'Hàng đợi', hint: 'Lịch thực thi' },
-  { href: '/logs', label: 'Nhật ký', hint: 'Theo dõi & kiểm toán' },
-  { href: '/settings', label: 'Cài đặt', hint: 'Hệ thống & truy cập' }
+  { href: '/dashboard', label: 'Tổng quan', hint: 'Điều hành tổng thể', Icon: LayoutDashboard },
+  { href: '/groups', label: 'Nhóm', hint: 'Kênh và diễn đàn', Icon: Users },
+  { href: '/topics', label: 'Chủ đề', hint: 'Ánh xạ thread', Icon: Hash },
+  { href: '/inbox', label: 'Hộp nguồn', hint: 'Nạp nội dung', Icon: Inbox },
+  { href: '/campaigns', label: 'Chiến dịch', hint: 'Lịch phân phối', Icon: Megaphone },
+  { href: '/queue', label: 'Hàng đợi', hint: 'Tiến trình gửi', Icon: ListOrdered },
+  { href: '/logs', label: 'Nhật ký', hint: 'Theo dõi lỗi', Icon: ScrollText },
+  { href: '/settings', label: 'Cài đặt', hint: 'Hệ thống', Icon: Settings }
 ];
 
 export function Nav() {
   const pathname = usePathname();
   return (
-    <nav className="space-y-1">
-      {links.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className={`group block rounded-xl border p-3 transition ${
-            pathname.startsWith(link.href)
-              ? 'border-zinc-500 bg-zinc-900 shadow-sm'
-              : 'border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900/80'
-          }`}
-        >
-          <p className="text-sm font-semibold text-zinc-100">{link.label}</p>
-          <p className="text-xs text-zinc-400">{link.hint}</p>
-        </Link>
-      ))}
+    <nav className="space-y-1.5">
+      {links.map((link) => {
+        const active = pathname.startsWith(link.href);
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
+              active ? 'bg-white/12 text-zinc-50' : 'text-zinc-400 hover:bg-white/6 hover:text-zinc-200'
+            }`}
+          >
+            <link.Icon size={16} />
+            <div>
+              <p className="text-sm font-semibold">{link.label}</p>
+              <p className="text-[11px] text-zinc-500">{link.hint}</p>
+            </div>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
