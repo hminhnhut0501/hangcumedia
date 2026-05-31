@@ -8,6 +8,7 @@ import { appToast } from '@/lib/toast';
 
 export default function BackfillPage() {
   const [groups, setGroups] = useState<any[]>([]);
+  const [allGroups, setAllGroups] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -26,13 +27,22 @@ export default function BackfillPage() {
 
   async function load() {
     const [groupRes, jobRes] = await Promise.all([
-      supabase.from('telegram_groups').select('*').eq('type', 'backup').eq('is_active', true).order('title'),
+      supabase.from('telegram_groups').select('*').order('title'),
       workerGet('/api/backfill/jobs')
     ]);
-    setGroups(groupRes.data || []);
+    const all = groupRes.data || [];
+    setAllGroups(all);
+    const backups = all.filter((g: any) => {
+      const type = String(g.type || '').toLowerCase().trim();
+      const isBackup = type === 'backup';
+      const isActive = g.is_active !== false;
+      const hasChatId = Number.isFinite(Number(g.chat_id));
+      return isBackup && isActive && hasChatId;
+    });
+    setGroups(backups);
     setJobs(jobRes.jobs || []);
-    if (!form.source_group_id && (groupRes.data || []).length > 0) {
-      setForm((prev) => ({ ...prev, source_group_id: groupRes.data![0].id }));
+    if (!form.source_group_id && backups.length > 0) {
+      setForm((prev) => ({ ...prev, source_group_id: backups[0].id }));
     }
   }
 
@@ -73,6 +83,19 @@ export default function BackfillPage() {
     if (status === 'failed' || status === 'cancelled') return 'badge badge-err';
     return 'badge badge-neutral';
   };
+
+  const backupDiagnostics = useMemo(() => {
+    const rawBackup = allGroups.filter((g) => String(g.type || '').toLowerCase().trim() === 'backup');
+    const inactiveBackup = rawBackup.filter((g) => g.is_active === false);
+    const noChatIdBackup = rawBackup.filter((g) => !Number.isFinite(Number(g.chat_id)));
+    return {
+      total: allGroups.length,
+      rawBackup: rawBackup.length,
+      usableBackup: groups.length,
+      inactiveBackup: inactiveBackup.length,
+      noChatIdBackup: noChatIdBackup.length
+    };
+  }, [allGroups, groups]);
 
   const jobProgress = (j: any) => {
     const total = Math.max(1, Number(j.total_estimated || 0));
@@ -117,6 +140,11 @@ export default function BackfillPage() {
             <label className="mb-1 block text-sm text-zinc-300">To message ID</label>
             <input className="input" value={form.to_message_id} onChange={(e) => setForm({ ...form, to_message_id: e.target.value })} placeholder="2000" />
           </div>
+        </div>
+        <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-2 text-xs text-zinc-400">
+          Nhóm tổng: {backupDiagnostics.total} • backup: {backupDiagnostics.rawBackup} • usable backup: {backupDiagnostics.usableBackup}
+          {backupDiagnostics.inactiveBackup > 0 ? ` • backup inactive: ${backupDiagnostics.inactiveBackup}` : ''}
+          {backupDiagnostics.noChatIdBackup > 0 ? ` • backup thiếu chat_id: ${backupDiagnostics.noChatIdBackup}` : ''}
         </div>
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input type="checkbox" checked={form.create_link_only} onChange={(e) => setForm({ ...form, create_link_only: e.target.checked })} />
