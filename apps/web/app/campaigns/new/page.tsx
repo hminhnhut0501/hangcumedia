@@ -27,6 +27,7 @@ export default function CampaignNewPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState('');
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -34,12 +35,31 @@ export default function CampaignNewPage() {
       supabase.from('topics').select('*').order('name')
     ]).then(([g, t]) => {
       const gs = g.data || [];
+      const ts = t.data || [];
       setGroups(gs);
-      setTopics(t.data || []);
+      setTopics(ts);
       const main = gs.find((x: any) => x.type === 'main') || gs[0];
-      if (main) setForm((f: any) => ({ ...f, target_group_id: main.id }));
+      if (main) {
+        setForm((f: any) => ({ ...f, target_group_id: f.target_group_id || main.id }));
+      }
+
+      if (!prefillApplied) {
+        const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+        const qGroupId = params.get('target_group_id') || '';
+        const qTopicId = params.get('target_topic_id') || '';
+        const groupValid = qGroupId && gs.some((x: any) => x.id === qGroupId && x.type === 'main');
+        const topicValid = qTopicId && ts.some((x: any) => x.id === qTopicId && x.group_id === qGroupId);
+        if (groupValid || topicValid) {
+          setForm((f: any) => ({
+            ...f,
+            target_group_id: groupValid ? qGroupId : f.target_group_id || main?.id || '',
+            target_topic_id: topicValid ? qTopicId : ''
+          }));
+        }
+        setPrefillApplied(true);
+      }
     });
-  }, []);
+  }, [prefillApplied]);
 
   const targetTopics = useMemo(
     () => topics.filter((t: any) => t.group_id === form.target_group_id),

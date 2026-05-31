@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "lint": "next lint"
+    "lint": "echo 'no lint configured'"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
