@@ -52,11 +52,25 @@ export default function BackfillPage() {
     if (jobRes.status === 'fulfilled') {
       setJobs(jobRes.value.jobs || []);
     } else {
-      setJobs([]);
-      setNotice((prev) => {
-        const jobErr = `Lỗi tải backfill jobs: ${String((jobRes as any).reason?.message || (jobRes as any).reason || 'unknown')}`;
-        return prev ? `${prev} | ${jobErr}` : jobErr;
-      });
+      // Fallback: read jobs directly from Supabase when worker endpoint is missing/outdated.
+      const fallback = await supabase
+        .from('backfill_jobs')
+        .select('*,telegram_groups(title)')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (fallback.error) {
+        setJobs([]);
+        setNotice((prev) => {
+          const jobErr = `Lỗi tải backfill jobs: ${String((jobRes as any).reason?.message || (jobRes as any).reason || 'unknown')} | fallback DB: ${fallback.error?.message || 'unknown'}`;
+          return prev ? `${prev} | ${jobErr}` : jobErr;
+        });
+      } else {
+        setJobs(fallback.data || []);
+        setNotice((prev) => {
+          const msg = 'Worker backfill jobs endpoint chưa sẵn sàng (not_found). Đang dùng fallback đọc DB trực tiếp.';
+          return prev ? `${prev} | ${msg}` : msg;
+        });
+      }
     }
   }
 
@@ -73,14 +87,40 @@ export default function BackfillPage() {
       if (!form.source_group_id) throw new Error('Chọn nhóm nguồn');
       if (!Number.isFinite(fromId) || !Number.isFinite(toId)) throw new Error('from/to message id phải là số');
 
-      const created = await workerPost('/api/backfill/jobs/create', {
-        source_group_id: form.source_group_id,
-        from_message_id: fromId,
-        to_message_id: toId,
-        source_thread_id: form.source_thread_id ? Number(form.source_thread_id) : null,
-        create_link_only: form.create_link_only
-      });
-      setNotice(`Đã tạo job ${created.job.id}.`);
+      let createdId = '';
+      try {
+        const created = await workerPost('/api/backfill/jobs/create', {
+          source_group_id: form.source_group_id,
+          from_message_id: fromId,
+          to_message_id: toId,
+          source_thread_id: form.source_thread_id ? Number(form.source_thread_id) : null,
+          create_link_only: form.create_link_only
+        });
+        createdId = created?.job?.id || '';
+      } catch (_workerErr: any) {
+        const g = groups.find((x) => x.id === form.source_group_id);
+        if (!g) throw new Error('Không tìm thấy nhóm nguồn');
+        const start = Math.min(fromId, toId);
+        const end = Math.max(fromId, toId);
+        const total = end - start + 1;
+        const fallback = await supabase
+          .from('backfill_jobs')
+          .insert({
+            source_group_id: form.source_group_id,
+            source_chat_id: Number(g.chat_id),
+            source_thread_id: form.source_thread_id ? Number(form.source_thread_id) : null,
+            from_message_id: start,
+            to_message_id: end,
+            create_link_only: form.create_link_only,
+            total_estimated: total,
+            status: 'pending'
+          })
+          .select('id')
+          .single();
+        if (fallback.error) throw fallback.error;
+        createdId = fallback.data?.id || '';
+      }
+      setNotice(`Đã tạo job ${createdId || '(ok)'}.`);
       appToast('Đã tạo backfill job thành công', 'success');
       await load();
     } catch (err: any) {
@@ -205,16 +245,39 @@ export default function BackfillPage() {
                 <td>ready:{j.imported_ready_count} link_only:{j.imported_link_only_count}</td>
                 <td><span className={statusClass(j.status)}>{j.status}</span></td>
                 <td className="flex gap-2 py-2">
-                  <button className="btn-secondary" onClick={async () => { await workerPost(`/api/backfill/jobs/${j.id}/start`, {}); appToast('Đã start job', 'success'); await load(); }}>Start</button>
+                  <button className="btn-secondary" onClick={async () => {
+                    try {
+                      await workerPost(`/api/backfill/jobs/${j.id}/start`, {});
+                    } catch {
+                      await supabase
+                        .from('backfill_jobs')
+                        .update({ status: 'running', started_at: j.started_at || new Date().toISOString(), last_error: null })
+                        .eq('id', j.id);
+                    }
+                    appToast('Đã start job', 'success');
+                    await load();
+                  }}>Start</button>
                   <button className="btn-secondary" onClick={async () => {
                     if (!confirm('Tạm dừng job backfill này?')) return;
-                    await workerPost(`/api/backfill/jobs/${j.id}/pause`, {});
+                    try {
+                      await workerPost(`/api/backfill/jobs/${j.id}/pause`, {});
+                    } catch {
+                      await supabase.from('backfill_jobs').update({ status: 'paused' }).eq('id', j.id).eq('status', 'running');
+                    }
                     appToast('Đã pause job', 'info');
                     await load();
                   }}>Pause</button>
                   <button className="btn-danger" onClick={async () => {
                     if (!confirm('Hủy job backfill này?')) return;
-                    await workerPost(`/api/backfill/jobs/${j.id}/cancel`, {});
+                    try {
+                      await workerPost(`/api/backfill/jobs/${j.id}/cancel`, {});
+                    } catch {
+                      await supabase
+                        .from('backfill_jobs')
+                        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+                        .eq('id', j.id)
+                        .in('status', ['pending', 'running', 'paused', 'failed']);
+                    }
                     appToast('Đã hủy job', 'info');
                     await load();
                   }}>Cancel</button>
