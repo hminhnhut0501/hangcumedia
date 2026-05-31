@@ -139,10 +139,22 @@ export default function CampaignsPage() {
                       <button className="btn-success" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); appToast('Đã tiếp tục campaign', 'success'); load(); }}>Resume</button>
                       <button className="btn-danger" onClick={async () => {
                         if (!confirm('Xóa campaign này?')) return;
-                        await workerDelete(`/api/campaigns/${row.id}`);
-                        setRows((prev) => prev.filter((r) => r.id !== row.id));
-                        appToast('Đã xóa campaign', 'info');
-                        load();
+                        try {
+                          try {
+                            await workerDelete(`/api/campaigns/${row.id}`);
+                          } catch (err: any) {
+                            // Fallback: if worker points to wrong project/env, still remove in the web Supabase project.
+                            const { error } = await supabase.from('campaigns').delete().eq('id', row.id);
+                            if (error) {
+                              throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web delete failed: ${error.message}`);
+                            }
+                          }
+                          setRows((prev) => prev.filter((r) => r.id !== row.id));
+                          appToast('Đã xóa campaign', 'info');
+                          load();
+                        } catch (err: any) {
+                          appToast(`Xóa campaign thất bại: ${err?.message || 'unknown error'}`, 'error');
+                        }
                       }}>Xóa</button>
                     </td>
                   </tr>

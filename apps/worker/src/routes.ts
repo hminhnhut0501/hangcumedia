@@ -522,13 +522,37 @@ export function registerRoutes(app: Express) {
   });
 
   app.delete('/api/campaigns/:id', requireAdmin, async (req, res) => {
+    const campaignId = req.params.id;
+    const { data: found, error: findError } = await supabase
+      .from('campaigns')
+      .select('id')
+      .eq('id', campaignId)
+      .maybeSingle();
+    if (findError) return res.status(400).json({ ok: false, error: findError.message });
+    if (!found) return res.status(404).json({ ok: false, error: 'Campaign not found' });
+
+    const deleteErrors: string[] = [];
+
+    // Defensive delete for old schemas that may miss ON DELETE CASCADE.
+    const [e1, e2, e3] = await Promise.all([
+      supabase.from('campaign_sources').delete().eq('campaign_id', campaignId),
+      supabase.from('queue_items').delete().eq('campaign_id', campaignId),
+      supabase.from('send_logs').update({ campaign_id: null }).eq('campaign_id', campaignId)
+    ]);
+    if (e1.error) deleteErrors.push(`campaign_sources: ${e1.error.message}`);
+    if (e2.error) deleteErrors.push(`queue_items: ${e2.error.message}`);
+    if (e3.error) deleteErrors.push(`send_logs: ${e3.error.message}`);
+    if (deleteErrors.length > 0) {
+      return res.status(400).json({ ok: false, error: `Failed cleanup before delete: ${deleteErrors.join(' | ')}` });
+    }
+
     const { data, error } = await supabase
       .from('campaigns')
       .delete()
-      .eq('id', req.params.id)
+      .eq('id', campaignId)
       .select('id');
     if (error) return res.status(400).json({ ok: false, error: error.message });
-    if (!data || data.length === 0) return res.status(404).json({ ok: false, error: 'Campaign not found' });
+    if (!data || data.length === 0) return res.status(409).json({ ok: false, error: 'Delete did not affect any rows' });
     res.json({ ok: true, deleted_id: data[0].id });
   });
 }
