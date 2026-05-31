@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   PUBLIC_WORKER_URL: z.string().url(),
   APP_TIMEZONE: z.string().default('Asia/Ho_Chi_Minh'),
+  GLOBAL_RUN_TIMES: z.string().optional(),
   SCHEDULER_TICK_SECONDS: z.coerce.number().int().positive().default(30),
   RECONCILE_INTERVAL_MINUTES: z.coerce.number().int().positive().default(60),
   MAX_RECONCILE_SCAN_IDS: z.coerce.number().int().positive().max(2000).default(500),

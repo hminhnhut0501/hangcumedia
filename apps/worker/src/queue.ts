@@ -7,6 +7,21 @@ import { env } from './config.js';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let isGeneratingQueue = false;
 
+function parseRunTimes(input: string[]): string[] {
+  return input
+    .map((t) => String(t || '').trim())
+    .filter((t) => /^\d{2}:\d{2}$/.test(t));
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 async function seedCampaignSourcesIfEmpty(campaign: any) {
   const { data: existing } = await supabase
     .from('campaign_sources')
@@ -129,10 +144,13 @@ export async function generateQueueForCampaign(campaignId?: string) {
           .update({ source_state: 'ready' })
           .eq('id', campaign.id);
       }
-      const rawRunTimes: string[] = campaign.run_times ?? ['21:00'];
-      const runTimes = rawRunTimes
-        .map((t) => String(t || '').trim())
-        .filter((t) => /^\d{2}:\d{2}$/.test(t));
+      const globalRunTimes = env.GLOBAL_RUN_TIMES
+        ? parseRunTimes(env.GLOBAL_RUN_TIMES.split(','))
+        : [];
+      const rawRunTimes: string[] = globalRunTimes.length > 0
+        ? globalRunTimes
+        : (campaign.run_times ?? ['21:00']);
+      const runTimes = parseRunTimes(rawRunTimes);
       const effectiveRunTimes = runTimes.length ? runTimes : ['21:00'];
       const computedRunsPerDay = effectiveRunTimes.length;
       if ((campaign.runs_per_day || 0) !== computedRunsPerDay) {
@@ -232,16 +250,6 @@ export async function generateQueueForCampaign(campaignId?: string) {
           continue;
         }
 
-        const queueCounts = new Map<string, number>();
-        const { data: existingUsage } = await supabase
-          .from('queue_items')
-          .select('source_message_id')
-          .eq('campaign_id', campaign.id);
-        for (const row of existingUsage || []) {
-          const key = row.source_message_id as string;
-          queueCounts.set(key, (queueCounts.get(key) || 0) + 1);
-        }
-
         const normalized = (sources || []).map((item: any) => ({
           sort_order: item.sort_order ?? 0,
           source: item.source_messages
@@ -251,7 +259,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
 
         if (campaign.media_group_mode === 'keep') {
         const albumSeen = new Set<string>();
-        const units: Array<{ key: string; sort_order: number; rows: any[]; score: number }> = [];
+        const units: Array<{ key: string; sort_order: number; rows: any[] }> = [];
         for (const row of normalized) {
           const src = row.source;
           const key = src.media_group_id
@@ -271,19 +279,13 @@ export async function generateQueueForCampaign(campaignId?: string) {
             rows = albumRows?.length ? albumRows : [src];
           }
 
-          const score = rows.reduce((acc, r) => acc + (queueCounts.get(r.id) || 0), 0);
-          units.push({ key, sort_order: row.sort_order, rows, score });
+          units.push({ key, sort_order: row.sort_order, rows });
         }
-
-        units.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
-        picked = units.slice(0, campaign.batch_size).map((u) => u.rows[0]);
+        units.sort((a, b) => a.sort_order - b.sort_order);
+        picked = shuffle(units).slice(0, campaign.batch_size).map((u) => u.rows[0]);
         } else {
-        const sortable = normalized.map((row) => ({
-          ...row,
-          score: queueCounts.get(row.source.id) || 0
-        }));
-        sortable.sort((a, b) => a.score - b.score || a.sort_order - b.sort_order);
-        picked = sortable.slice(0, campaign.batch_size).map((x) => x.source);
+        const sortable = [...normalized].sort((a, b) => a.sort_order - b.sort_order);
+        picked = shuffle(sortable).slice(0, campaign.batch_size).map((x) => x.source);
         }
 
         // No repeat within same day: only pick messages that have not been used today.

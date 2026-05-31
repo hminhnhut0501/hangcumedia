@@ -57,6 +57,7 @@ cp .env.example .env
 - `ADMIN_API_SECRET`
 - `WORKER_URL` (set trong Vercel server env để web proxy gọi worker)
 - `APP_TIMEZONE=Asia/Ho_Chi_Minh`
+- `GLOBAL_RUN_TIMES=09:00,15:00,21:00` (nếu set, toàn bộ campaign dùng chung khung giờ này)
 - `SCHEDULER_TICK_SECONDS=30`
 - `RECONCILE_INTERVAL_MINUTES=60` (job reconcile nguồn theo giờ)
 - `MAX_RECONCILE_SCAN_IDS=500` (giới hạn số ID quét mỗi nhóm mỗi lượt)
