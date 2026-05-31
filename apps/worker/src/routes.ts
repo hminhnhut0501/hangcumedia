@@ -273,6 +273,40 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post('/api/campaigns/preflight-all', requireAdmin, async (_req, res) => {
+    try {
+      const { data: campaigns } = await supabase
+        .from('campaigns')
+        .select('id,name,status')
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false });
+      const results = [];
+      for (const campaign of campaigns || []) {
+        const pf = await runCampaignPreflight(campaign.id);
+        results.push({
+          id: campaign.id,
+          name: campaign.name,
+          status: campaign.status,
+          ...pf
+        });
+      }
+      const failed = results.filter((r: any) => !r.ok).length;
+      const warned = results.filter((r: any) => r.ok && (r.warnings?.length || 0) > 0).length;
+      res.json({
+        ok: true,
+        summary: {
+          total: results.length,
+          failed,
+          warned,
+          healthy: results.length - failed - warned
+        },
+        results
+      });
+    } catch (err: any) {
+      res.status(400).json({ ok: false, error: err?.message || 'preflight-all failed' });
+    }
+  });
+
   app.post('/api/queue/:id/retry', requireAdmin, async (req, res) => {
     await supabase
       .from('queue_items')

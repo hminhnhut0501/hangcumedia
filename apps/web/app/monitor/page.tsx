@@ -12,6 +12,7 @@ export default function MonitorPage() {
   const [logPage, setLogPage] = useState(1);
   const [runtime, setRuntime] = useState<any>(null);
   const [webhookInfo, setWebhookInfo] = useState<any>(null);
+  const [preflightAll, setPreflightAll] = useState<any>(null);
   const pageSize = 10;
   const statusBadge = (s: string) => {
     if (s === 'sent') return 'badge badge-ok';
@@ -51,6 +52,11 @@ export default function MonitorPage() {
     setWebhookInfo(wh?.info || null);
   }
 
+  async function runPreflightAll() {
+    const result = await workerPost('/api/campaigns/preflight-all', {});
+    setPreflightAll(result);
+  }
+
   useEffect(() => { load(); }, []);
 
   const stats = useMemo(() => {
@@ -83,6 +89,23 @@ export default function MonitorPage() {
             <button className="btn" onClick={async () => { await workerPost('/api/import/reconcile', {}); await load(); }}>Reconcile now</button>
           </div>
         </article>
+      </section>
+
+      <section className="card">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="section-title text-lg font-semibold">Preflight toàn bộ campaign</h3>
+          <button className="btn-secondary" onClick={runPreflightAll}>Run preflight all</button>
+        </div>
+        {preflightAll?.summary ? (
+          <div className="grid gap-3 md:grid-cols-4">
+            <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">TOTAL</p><p className="mt-2 text-2xl font-semibold">{preflightAll.summary.total}</p></article>
+            <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">HEALTHY</p><p className="mt-2 text-2xl font-semibold text-emerald-300">{preflightAll.summary.healthy}</p></article>
+            <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">WARNED</p><p className="mt-2 text-2xl font-semibold text-amber-300">{preflightAll.summary.warned}</p></article>
+            <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">FAILED</p><p className="mt-2 text-2xl font-semibold text-rose-300">{preflightAll.summary.failed}</p></article>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400">Bấm "Run preflight all" để kiểm tra quyền nhóm đích và trạng thái nguồn trước giờ gửi.</p>
+        )}
       </section>
 
       <section className="grid gap-3 md:grid-cols-5">
