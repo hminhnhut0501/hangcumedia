@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 import { workerPost } from '@/lib/worker';
+import { appToast } from '@/lib/toast';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -44,6 +45,24 @@ export default function SetupPage() {
     batch: rule.batch_size
   }), [sourceMode, sourceGroupId, targetGroupId, targetTopicId, rule]);
 
+  const scanError = useMemo(() => {
+    if (sourceMode !== 'scan') return '';
+    const from = Number(scan.from_message_id);
+    const to = Number(scan.to_message_id);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return 'Cần nhập đủ From/To message ID.';
+    if (Math.abs(to - from) + 1 > 500) return 'Mỗi lần scan tối đa 500 ID.';
+    return '';
+  }, [sourceMode, scan.from_message_id, scan.to_message_id]);
+
+  const ruleError = useMemo(() => {
+    if (!rule.name.trim()) return 'Tên chiến dịch không được để trống.';
+    const times = String(rule.run_times).split(',').map((x) => x.trim()).filter(Boolean);
+    if (!times.length || times.some((x) => !/^\d{2}:\d{2}$/.test(x))) return 'Khung giờ phải theo định dạng HH:mm, ví dụ 09:00,15:00.';
+    if (Number(rule.batch_size) < 1) return 'Batch size phải >= 1.';
+    if (rule.caption_mode === 'custom' && !rule.custom_caption.trim()) return 'Caption mới không được để trống khi chọn custom.';
+    return '';
+  }, [rule]);
+
   async function load() {
     const [g, t] = await Promise.all([
       supabase.from('telegram_groups').select('*').order('title'),
@@ -78,8 +97,10 @@ export default function SetupPage() {
       });
       setScanResult(result);
       setNotice('Scan hoàn tất.');
+      appToast('Scan range hoàn tất', 'success');
     } catch (err: any) {
       setNotice(`Lỗi scan: ${err.message}`);
+      appToast('Scan range thất bại', 'error');
     } finally {
       setLoading(false);
     }
@@ -95,8 +116,10 @@ export default function SetupPage() {
       setNewTopicName('');
       await load();
       setNotice('Đã tạo topic mới và chọn làm đích.');
+      appToast('Đã tạo topic mới', 'success');
     } catch (err: any) {
       setNotice(`Lỗi tạo topic: ${err.message}`);
+      appToast('Tạo topic thất bại', 'error');
     } finally {
       setLoading(false);
     }
@@ -167,9 +190,11 @@ export default function SetupPage() {
         ? ' Campaign đã hết source chưa dùng. Hãy thêm source mới.'
         : '';
       setNotice(`Hoàn tất. Campaign đã tạo và queue đã generate (created=${generate?.summary?.items_created ?? 0}).${warningText}${exhaustedText}`);
+      appToast('Đã tạo campaign và generate queue', 'success');
       setStep(4);
     } catch (err: any) {
       setNotice(`Lỗi khởi tạo flow: ${err.message}`);
+      appToast('Khởi tạo flow thất bại', 'error');
     } finally {
       setLoading(false);
     }
@@ -241,8 +266,9 @@ export default function SetupPage() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <button className="btn" onClick={doScanRange} disabled={loading}>{loading ? 'Đang scan...' : 'Scan range'}</button>
+                <button className="btn" onClick={doScanRange} disabled={loading || !!scanError}>{loading ? 'Đang scan...' : 'Scan range'}</button>
               </div>
+              {scanError ? <p className="field-error">{scanError}</p> : null}
             </div>
           ) : null}
 
@@ -341,8 +367,9 @@ export default function SetupPage() {
 
           <div className="flex justify-between">
             <button className="btn-secondary" onClick={() => setStep(2)}>Quay lại</button>
-            <button className="btn" onClick={() => setStep(4)}>Xác nhận</button>
+            <button className="btn" onClick={() => setStep(4)} disabled={!!ruleError}>Xác nhận</button>
           </div>
+          {ruleError ? <p className="field-error">{ruleError}</p> : null}
         </section>
       ) : null}
 

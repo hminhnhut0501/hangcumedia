@@ -140,6 +140,7 @@ export default function CampaignsPage() {
                       <button className="btn-danger" onClick={async () => {
                         if (!confirm('Xóa campaign này?')) return;
                         await workerDelete(`/api/campaigns/${row.id}`);
+                        setRows((prev) => prev.filter((r) => r.id !== row.id));
                         appToast('Đã xóa campaign', 'info');
                         load();
                       }}>Xóa</button>

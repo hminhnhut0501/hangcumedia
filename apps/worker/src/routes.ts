@@ -522,7 +522,13 @@ export function registerRoutes(app: Express) {
   });
 
   app.delete('/api/campaigns/:id', requireAdmin, async (req, res) => {
-    await supabase.from('campaigns').delete().eq('id', req.params.id);
-    res.json({ ok: true });
+    const { data, error } = await supabase
+      .from('campaigns')
+      .delete()
+      .eq('id', req.params.id)
+      .select('id');
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    if (!data || data.length === 0) return res.status(404).json({ ok: false, error: 'Campaign not found' });
+    res.json({ ok: true, deleted_id: data[0].id });
   });
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 import { workerGet, workerPost } from '@/lib/worker';
+import { appToast } from '@/lib/toast';
 
 export default function MonitorPage() {
   const [queue, setQueue] = useState<any[]>([]);
@@ -75,8 +76,26 @@ export default function MonitorPage() {
   const logPages = Math.max(1, Math.ceil(logs.length / pageSize));
   const logRows = logs.slice((logPage - 1) * pageSize, logPage * pageSize);
 
+  const health = useMemo(() => {
+    const pendingWebhook = Number(webhookInfo?.pending_update_count || 0);
+    const failedCount = Number(stats.failed || 0);
+    const autoPause = Number(analytics?.send?.auto_pause || 0);
+    if (pendingWebhook > 50 || failedCount > 20) return { level: 'err', text: 'Critical: queue/webhook đang bất ổn' };
+    if (pendingWebhook > 0 || failedCount > 0 || autoPause > 0) return { level: 'warn', text: 'Warning: có lỗi cần theo dõi' };
+    return { level: 'ok', text: 'Healthy: hệ thống đang ổn định' };
+  }, [webhookInfo, stats, analytics]);
+
   return (
     <AppShell title="Giám sát vận hành" subtitle="Theo dõi queue và xử lý lỗi nhanh bằng một màn hình." actions={<button className="btn-secondary" onClick={load}>Làm mới</button>}>
+      <section className={`sticky top-3 z-20 rounded-xl border px-3 py-2 text-sm ${
+        health.level === 'ok'
+          ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-200'
+          : health.level === 'warn'
+            ? 'border-amber-300/40 bg-amber-400/10 text-amber-200'
+            : 'border-rose-300/40 bg-rose-400/10 text-rose-200'
+      }`}>
+        {health.text}
+      </section>
       <section className="grid gap-3 md:grid-cols-3">
         <article className="card">
           <p className="text-xs uppercase text-zinc-500">Webhook URL</p>
@@ -90,7 +109,7 @@ export default function MonitorPage() {
           <p className="text-xs uppercase text-zinc-500">Last Error</p>
           <p className="mt-2 text-sm text-rose-300">{webhookInfo?.last_error_message || '-'}</p>
           <div className="mt-2 flex justify-end">
-            <button className="btn" onClick={async () => { await workerPost('/api/import/reconcile', {}); await load(); }}>Reconcile now</button>
+            <button className="btn" onClick={async () => { await workerPost('/api/import/reconcile', {}); appToast('Đã chạy reconcile', 'success'); await load(); }}>Reconcile now</button>
           </div>
         </article>
       </section>
@@ -126,7 +145,7 @@ export default function MonitorPage() {
       <section className="card">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="section-title text-lg font-semibold">Preflight toàn bộ campaign</h3>
-          <button className="btn-secondary" onClick={runPreflightAll}>Run preflight all</button>
+          <button className="btn-secondary" onClick={async () => { await runPreflightAll(); appToast('Đã chạy preflight all', 'success'); }}>Run preflight all</button>
         </div>
         {preflightAll?.summary ? (
           <div className="grid gap-3 md:grid-cols-4">
@@ -165,15 +184,17 @@ export default function MonitorPage() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="section-title text-lg font-semibold">Queue lỗi</h3>
           <button className="btn" onClick={async () => {
+            if (!confirm('Retry tối đa 50 queue lỗi gần nhất?')) return;
             for (const item of failed.slice(0, 50)) {
               await workerPost(`/api/queue/${item.id}/retry`, {});
             }
+            appToast('Đã retry các queue lỗi', 'success');
             await load();
           }}>Retry all failed (max 50)</button>
         </div>
         <div className="overflow-auto">
           <table className="table min-w-[1000px]"><thead><tr><th>Campaign</th><th>ID chi tiết</th><th>Scheduled</th><th>Status</th><th>Error</th><th>Retry</th><th>Action</th></tr></thead>
-            <tbody>{failedRows.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td className="text-xs text-zinc-400"><div>queue: {f.id}</div><div>msg: {f.source_messages?.source_chat_id || '-'}/{f.source_messages?.source_message_id || '-'}</div></td><td>{formatCampaignTime(f.scheduled_at, f.campaigns?.timezone)}</td><td><span className={statusBadge(f.status)}>{f.status}</span></td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); load(); }}>Retry</button></td></tr>)}</tbody>
+            <tbody>{failedRows.map((f) => <tr key={f.id}><td>{f.campaigns?.name}</td><td className="text-xs text-zinc-400"><div>queue: {f.id}</div><div>msg: {f.source_messages?.source_chat_id || '-'}/{f.source_messages?.source_message_id || '-'}</div></td><td>{formatCampaignTime(f.scheduled_at, f.campaigns?.timezone)}</td><td><span className={statusBadge(f.status)}>{f.status}</span></td><td className="max-w-[350px] truncate">{f.error_message || '-'}</td><td>{f.retry_count}</td><td><button className="btn-secondary" onClick={async () => { await workerPost(`/api/queue/${f.id}/retry`, {}); appToast('Đã retry queue', 'success'); load(); }}>Retry</button></td></tr>)}</tbody>
           </table>
         </div>
         {failed.length > 0 ? (
