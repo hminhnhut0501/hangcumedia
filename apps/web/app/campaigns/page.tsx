@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { SkeletonTable } from '@/components/SkeletonTable';
 import { supabase } from '@/lib/supabase';
-import { workerDelete, workerPost } from '@/lib/worker';
+import { workerPost } from '@/lib/worker';
 import { appToast } from '@/lib/toast';
 
 type Campaign = any;
@@ -127,11 +127,21 @@ export default function CampaignsPage() {
     if (!confirm('Xóa campaign này?')) return;
     try {
       try {
-        await workerDelete(`/api/campaigns/${row.id}`);
+        await workerPost(`/api/campaigns/${row.id}/delete`, {});
       } catch (err: any) {
-        const { error } = await supabase.from('campaigns').delete().eq('id', row.id);
-        if (error) {
-          throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web delete failed: ${error.message}`);
+        // Fallback hard-delete in web Supabase project to handle env mismatch and legacy FK states.
+        const [r1, r2, r3] = await Promise.all([
+          supabase.from('campaign_sources').delete().eq('campaign_id', row.id),
+          supabase.from('queue_items').delete().eq('campaign_id', row.id),
+          supabase.from('send_logs').update({ campaign_id: null }).eq('campaign_id', row.id)
+        ]);
+        const cleanupErrors = [r1.error, r2.error, r3.error].filter(Boolean).map((e: any) => e.message);
+        if (cleanupErrors.length > 0) {
+          throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web cleanup failed: ${cleanupErrors.join(' | ')}`);
+        }
+        const { error: delError } = await supabase.from('campaigns').delete().eq('id', row.id);
+        if (delError) {
+          throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web delete failed: ${delError.message}`);
         }
       }
       setRows((prev) => prev.filter((r) => r.id !== row.id));

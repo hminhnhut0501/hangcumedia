@@ -521,8 +521,7 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   });
 
-  app.delete('/api/campaigns/:id', requireAdmin, async (req, res) => {
-    const campaignId = req.params.id;
+  async function deleteCampaignInternal(campaignId: string, res: Response) {
     const { data: found, error: findError } = await supabase
       .from('campaigns')
       .select('id')
@@ -554,5 +553,14 @@ export function registerRoutes(app: Express) {
     if (error) return res.status(400).json({ ok: false, error: error.message });
     if (!data || data.length === 0) return res.status(409).json({ ok: false, error: 'Delete did not affect any rows' });
     res.json({ ok: true, deleted_id: data[0].id });
+  }
+
+  app.delete('/api/campaigns/:id', requireAdmin, async (req, res) => {
+    return deleteCampaignInternal(req.params.id, res);
+  });
+
+  // POST alias to avoid proxies/environments that mishandle DELETE.
+  app.post('/api/campaigns/:id/delete', requireAdmin, async (req, res) => {
+    return deleteCampaignInternal(req.params.id, res);
   });
 }
