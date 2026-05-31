@@ -33,11 +33,8 @@ export default function BackfillPage() {
     const all = groupRes.data || [];
     setAllGroups(all);
     const backups = all.filter((g: any) => {
-      const type = String(g.type || '').toLowerCase().trim();
-      const isBackup = type === 'backup';
-      const isActive = g.is_active !== false;
       const hasChatId = Number.isFinite(Number(g.chat_id));
-      return isBackup && isActive && hasChatId;
+      return hasChatId;
     });
     setGroups(backups);
     setJobs(jobRes.jobs || []);
@@ -56,7 +53,7 @@ export default function BackfillPage() {
     try {
       const fromId = Number(form.from_message_id);
       const toId = Number(form.to_message_id);
-      if (!form.source_group_id) throw new Error('Chọn nhóm nguồn backup');
+      if (!form.source_group_id) throw new Error('Chọn nhóm nguồn');
       if (!Number.isFinite(fromId) || !Number.isFinite(toId)) throw new Error('from/to message id phải là số');
 
       const created = await workerPost('/api/backfill/jobs/create', {
@@ -121,12 +118,17 @@ export default function BackfillPage() {
         <h3 className="section-title text-lg font-semibold">Tạo backfill job</h3>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Nhóm nguồn (backup)</label>
+            <label className="mb-1 block text-sm text-zinc-300">Nhóm nguồn</label>
             <select className="input" value={form.source_group_id} onChange={(e) => setForm({ ...form, source_group_id: e.target.value })}>
               <option value="">Chọn nhóm</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title} ({String(g.type || 'unknown')}{g.is_active === false ? ', inactive' : ''})
+                </option>
+              ))}
             </select>
             <p className="mt-1 text-xs text-zinc-500">Chat ID: {selectedGroup?.chat_id || '-'}</p>
+            <p className="mt-1 text-xs text-amber-300">Khuyến nghị chọn nhóm type=backup để backfill đúng luồng nguồn.</p>
           </div>
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Topic thread ID (optional)</label>
