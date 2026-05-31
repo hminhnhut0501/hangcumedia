@@ -7,6 +7,7 @@ Hệ thống quản trị gửi nội dung Telegram theo lịch, hỗ trợ mapp
 Monorepo gồm:
 - `apps/web`: Admin UI (Next.js)
 - `apps/worker`: Bot Telegram + API nội bộ + scheduler (Express + Telegraf)
+- `apps/backfill`: Telethon worker để hydrate lịch sử cũ thành metadata `ready`
 - `packages/shared`: types/utils dùng chung
 - `supabase/migrations/001_init.sql`: schema database + RLS
 
@@ -62,6 +63,12 @@ cp .env.example .env
 - `RECONCILE_INTERVAL_MINUTES=60` (job reconcile nguồn theo giờ)
 - `MAX_RECONCILE_SCAN_IDS=500` (giới hạn số ID quét mỗi nhóm mỗi lượt)
 - `MAX_LATE_SECONDS=900` (quá trễ slot thì bỏ slot, không dồn gửi)
+
+### Telethon backfill (dịch vụ riêng)
+- `TELETHON_API_ID`
+- `TELETHON_API_HASH`
+- `TELETHON_SESSION_STRING`
+- `BACKFILL_POLL_SECONDS=10`
 
 ### Lưu ý bảo mật
 - Không đưa `SUPABASE_SERVICE_ROLE_KEY` ra frontend.
@@ -246,12 +253,18 @@ Bot tự import khi:
 - `POST /api/topics/sync`
 - `POST /api/import/link`
 - `POST /api/import/reconcile` (manual reconcile 1 nhóm hoặc tất cả nhóm backup)
+- `POST /api/backfill/jobs/create`
+- `GET /api/backfill/jobs`
+- `POST /api/backfill/jobs/:id/start`
+- `POST /api/backfill/jobs/:id/pause`
+- `POST /api/backfill/jobs/:id/cancel`
 - `POST /api/queue/generate`
 - `POST /api/queue/:id/retry`
 - `POST /api/campaigns/:id/pause`
 - `POST /api/campaigns/:id/resume`
 - `GET /api/runtime/status` (cursor, ingest jobs, campaign source state)
 - `GET /api/telegram/webhook-info` (kiểm tra webhook runtime)
+- `GET /api/analytics/summary/:range` (`24h` hoặc `7d`)
 
 Route `/api/*` cần header:
 - `x-admin-secret: <ADMIN_API_SECRET>`

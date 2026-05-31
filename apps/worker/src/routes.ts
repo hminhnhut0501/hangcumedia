@@ -87,6 +87,54 @@ export function registerRoutes(app: Express) {
     });
   });
 
+  app.get('/api/analytics/summary/:range', requireAdmin, async (req, res) => {
+    const range = req.params.range === '7d' ? '7d' : '24h';
+    const fromIso = range === '7d'
+      ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ data: sendLogs }, { data: queueItems }, { data: campaigns }] = await Promise.all([
+      supabase.from('send_logs').select('status,action,created_at,error_message').gte('created_at', fromIso),
+      supabase.from('queue_items').select('status,created_at').gte('created_at', fromIso),
+      supabase.from('campaigns').select('id,name,status,source_state')
+    ]);
+
+    const sendStats = { sent: 0, failed: 0, skipped: 0, auto_pause: 0 };
+    for (const row of sendLogs || []) {
+      if (row.action === 'auto_pause') sendStats.auto_pause += 1;
+      if (row.status === 'sent') sendStats.sent += 1;
+      if (row.status === 'failed') sendStats.failed += 1;
+      if (row.status === 'skipped') sendStats.skipped += 1;
+    }
+
+    const queueStats = { pending: 0, processing: 0, sent: 0, failed: 0, skipped: 0 };
+    for (const row of queueItems || []) {
+      const key = String(row.status || '');
+      if (key in queueStats) (queueStats as any)[key] += 1;
+    }
+
+    const topErrorsMap = new Map<string, number>();
+    for (const row of sendLogs || []) {
+      if (row.status !== 'failed') continue;
+      const key = String(row.error_message || 'Unknown error').slice(0, 140);
+      topErrorsMap.set(key, (topErrorsMap.get(key) || 0) + 1);
+    }
+    const top_errors = Array.from(topErrorsMap.entries())
+      .map(([error, count]) => ({ error, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({
+      ok: true,
+      range,
+      from: fromIso,
+      send: sendStats,
+      queue: queueStats,
+      campaigns: campaigns || [],
+      top_errors
+    });
+  });
+
   app.get('/api/telegram/webhook-info', requireAdmin, async (_req, res) => {
     try {
       const info = await bot.telegram.getWebhookInfo();

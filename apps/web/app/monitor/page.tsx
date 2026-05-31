@@ -13,6 +13,8 @@ export default function MonitorPage() {
   const [runtime, setRuntime] = useState<any>(null);
   const [webhookInfo, setWebhookInfo] = useState<any>(null);
   const [preflightAll, setPreflightAll] = useState<any>(null);
+  const [analyticsRange, setAnalyticsRange] = useState<'24h' | '7d'>('24h');
+  const [analytics, setAnalytics] = useState<any>(null);
   const pageSize = 10;
   const statusBadge = (s: string) => {
     if (s === 'sent') return 'badge badge-ok';
@@ -40,16 +42,18 @@ export default function MonitorPage() {
   };
 
   async function load() {
-    const [q, l, rt, wh] = await Promise.all([
+    const [q, l, rt, wh, an] = await Promise.all([
       supabase.from('queue_items').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(100),
       supabase.from('send_logs').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(50),
       workerGet('/api/runtime/status'),
-      workerGet('/api/telegram/webhook-info')
+      workerGet('/api/telegram/webhook-info'),
+      workerGet(`/api/analytics/summary/${analyticsRange}`)
     ]);
     setQueue(q.data || []);
     setLogs(l.data || []);
     setRuntime(rt);
     setWebhookInfo(wh?.info || null);
+    setAnalytics(an);
   }
 
   async function runPreflightAll() {
@@ -57,7 +61,7 @@ export default function MonitorPage() {
     setPreflightAll(result);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [analyticsRange]);
 
   const stats = useMemo(() => {
     const acc: any = { pending: 0, processing: 0, sent: 0, failed: 0, skipped: 0 };
@@ -89,6 +93,34 @@ export default function MonitorPage() {
             <button className="btn" onClick={async () => { await workerPost('/api/import/reconcile', {}); await load(); }}>Reconcile now</button>
           </div>
         </article>
+      </section>
+
+      <section className="card">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="section-title text-lg font-semibold">Analytics</h3>
+          <div className="flex gap-2">
+            <button className={`btn-secondary ${analyticsRange === '24h' ? 'ring-1 ring-cyan-300/60' : ''}`} onClick={() => setAnalyticsRange('24h')}>24h</button>
+            <button className={`btn-secondary ${analyticsRange === '7d' ? 'ring-1 ring-cyan-300/60' : ''}`} onClick={() => setAnalyticsRange('7d')}>7d</button>
+          </div>
+        </div>
+        {analytics ? (
+          <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-4">
+              <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">SEND OK</p><p className="mt-2 text-2xl font-semibold text-emerald-300">{analytics.send?.sent || 0}</p></article>
+              <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">SEND FAIL</p><p className="mt-2 text-2xl font-semibold text-rose-300">{analytics.send?.failed || 0}</p></article>
+              <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">AUTO PAUSE</p><p className="mt-2 text-2xl font-semibold text-amber-300">{analytics.send?.auto_pause || 0}</p></article>
+              <article className="rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-xs text-zinc-500">QUEUE PENDING</p><p className="mt-2 text-2xl font-semibold">{analytics.queue?.pending || 0}</p></article>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold text-zinc-200">Top lỗi</p>
+              <div className="space-y-1 text-sm text-zinc-300">
+                {(analytics.top_errors || []).map((e: any, idx: number) => (
+                  <p key={`err-${idx}`}>#{idx + 1} ({e.count}) {e.error}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : <p className="text-sm text-zinc-400">Đang tải analytics...</p>}
       </section>
 
       <section className="card">

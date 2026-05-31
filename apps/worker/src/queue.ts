@@ -409,6 +409,31 @@ async function markFailed(itemId: string, errorMessage: string, retryCount: numb
   }
 }
 
+async function tryAutoPauseCampaign(campaignId: string) {
+  const { data: logs } = await supabase
+    .from('send_logs')
+    .select('error_message,status,created_at')
+    .eq('campaign_id', campaignId)
+    .eq('action', 'send')
+    .order('created_at', { ascending: false })
+    .limit(3);
+  if (!logs || logs.length < 3) return false;
+
+  const hardFail = (msg: string) =>
+    /400|403|chat not found|message to copy not found|forbidden/i.test(msg || '');
+  const allHardFailed = logs.every((x: any) => x.status === 'failed' && hardFail(String(x.error_message || '')));
+  if (!allHardFailed) return false;
+
+  await supabase.from('campaigns').update({ status: 'paused' }).eq('id', campaignId);
+  await supabase.from('send_logs').insert({
+    campaign_id: campaignId,
+    action: 'auto_pause',
+    status: 'done',
+    error_message: 'Campaign auto-paused: 3 hard fails liên tiếp (400/403/not found).'
+  });
+  return true;
+}
+
 export async function processDueQueueItems() {
   const runtime = await loadRuntimeSettings();
   await supabase
@@ -563,6 +588,9 @@ export async function processDueQueueItems() {
         error_message: err?.message ?? 'Unknown error',
         response_payload: err?.response ?? null
       });
+      if (forceNoRetry && item.campaign_id) {
+        await tryAutoPauseCampaign(item.campaign_id);
+      }
     }
   }
 }
