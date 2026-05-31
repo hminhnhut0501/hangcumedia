@@ -27,9 +27,6 @@ HEADERS = {
   "Prefer": "return=representation",
 }
 
-client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-
-
 def now_iso():
   return datetime.now(timezone.utc).isoformat()
 
@@ -98,7 +95,7 @@ async def fetch_last_checkpoint(job_id: str):
   return rows[0] if rows else None
 
 
-async def process_job(job):
+async def process_job(client: TelegramClient, job):
   start = min(int(job["from_message_id"]), int(job["to_message_id"]))
   end = max(int(job["from_message_id"]), int(job["to_message_id"]))
   cp = await fetch_last_checkpoint(job["id"])
@@ -195,12 +192,13 @@ async def process_job(job):
 
 
 async def loop_forever():
+  client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
   await client.start()
   while True:
     try:
       job = await fetch_running_job()
       if job:
-        await process_job(job)
+        await process_job(client, job)
       else:
         await asyncio.sleep(POLL_SECONDS)
     except Exception as err:
