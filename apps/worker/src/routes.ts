@@ -512,13 +512,25 @@ export function registerRoutes(app: Express) {
   });
 
   app.post('/api/campaigns/:id/pause', requireAdmin, async (req, res) => {
-    await supabase.from('campaigns').update({ status: 'paused' }).eq('id', req.params.id);
-    res.json({ ok: true });
+    const { data, error } = await supabase
+      .from('campaigns')
+      .update({ status: 'paused' })
+      .eq('id', req.params.id)
+      .select('id,status');
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    if (!data || data.length === 0) return res.status(404).json({ ok: false, error: 'Campaign not found or not updated' });
+    res.json({ ok: true, campaign: data[0] });
   });
 
   app.post('/api/campaigns/:id/resume', requireAdmin, async (req, res) => {
-    await supabase.from('campaigns').update({ status: 'active' }).eq('id', req.params.id);
-    res.json({ ok: true });
+    const { data, error } = await supabase
+      .from('campaigns')
+      .update({ status: 'active' })
+      .eq('id', req.params.id)
+      .select('id,status');
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    if (!data || data.length === 0) return res.status(404).json({ ok: false, error: 'Campaign not found or not updated' });
+    res.json({ ok: true, campaign: data[0] });
   });
 
   async function deleteCampaignInternal(campaignId: string, res: Response) {

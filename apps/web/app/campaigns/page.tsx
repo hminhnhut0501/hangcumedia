@@ -125,14 +125,18 @@ export default function CampaignsPage() {
 
   async function setCampaignStatus(row: Campaign, nextStatus: 'active' | 'paused') {
     try {
+      const { data: localData, error: localError } = await supabase
+        .from('campaigns')
+        .update({ status: nextStatus })
+        .eq('id', row.id)
+        .select('id,status');
+      if (localError) throw localError;
+      if (!localData || localData.length === 0) throw new Error('Campaign không tồn tại trong Supabase hiện tại của web.');
+
       try {
         await workerPost(`/api/campaigns/${row.id}/${nextStatus === 'paused' ? 'pause' : 'resume'}`, {});
-      } catch (_err: any) {
-        const { error } = await supabase
-          .from('campaigns')
-          .update({ status: nextStatus })
-          .eq('id', row.id);
-        if (error) throw error;
+      } catch (workerErr: any) {
+        console.warn('worker status update failed, kept local update', workerErr);
       }
       setRows((prev) => prev.map((x) => (x.id === row.id ? { ...x, status: nextStatus } : x)));
       appToast(nextStatus === 'paused' ? 'Đã tạm dừng campaign' : 'Đã tiếp tục campaign', 'success');
@@ -145,23 +149,28 @@ export default function CampaignsPage() {
   async function deleteCampaign(row: Campaign) {
     if (!confirm('Xóa campaign này?')) return;
     try {
+      // Local Supabase is the UI source of truth.
+      const [r1, r2, r3] = await Promise.all([
+        supabase.from('campaign_sources').delete().eq('campaign_id', row.id),
+        supabase.from('queue_items').delete().eq('campaign_id', row.id),
+        supabase.from('send_logs').update({ campaign_id: null }).eq('campaign_id', row.id)
+      ]);
+      const cleanupErrors = [r1.error, r2.error, r3.error].filter(Boolean).map((e: any) => e.message);
+      if (cleanupErrors.length > 0) {
+        throw new Error(`Cleanup failed: ${cleanupErrors.join(' | ')}`);
+      }
+      const { data: localDeleted, error: localDeleteError } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', row.id)
+        .select('id');
+      if (localDeleteError) throw localDeleteError;
+      if (!localDeleted || localDeleted.length === 0) throw new Error('Campaign không tồn tại trong Supabase hiện tại của web.');
+
       try {
         await workerPost(`/api/campaigns/${row.id}/delete`, {});
-      } catch (err: any) {
-        // Fallback hard-delete in web Supabase project to handle env mismatch and legacy FK states.
-        const [r1, r2, r3] = await Promise.all([
-          supabase.from('campaign_sources').delete().eq('campaign_id', row.id),
-          supabase.from('queue_items').delete().eq('campaign_id', row.id),
-          supabase.from('send_logs').update({ campaign_id: null }).eq('campaign_id', row.id)
-        ]);
-        const cleanupErrors = [r1.error, r2.error, r3.error].filter(Boolean).map((e: any) => e.message);
-        if (cleanupErrors.length > 0) {
-          throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web cleanup failed: ${cleanupErrors.join(' | ')}`);
-        }
-        const { error: delError } = await supabase.from('campaigns').delete().eq('id', row.id);
-        if (delError) {
-          throw new Error(`Worker delete failed: ${String(err?.message || err)} | Web delete failed: ${delError.message}`);
-        }
+      } catch (workerErr: any) {
+        console.warn('worker delete failed, kept local delete', workerErr);
       }
       setRows((prev) => prev.filter((r) => r.id !== row.id));
       appToast('Đã xóa campaign', 'info');
@@ -177,16 +186,22 @@ export default function CampaignsPage() {
       return;
     }
     try {
+      for (const id of campaignIds) {
+        const { data, error } = await supabase
+          .from('campaigns')
+          .update({ status: mode === 'pause' ? 'paused' : 'active' })
+          .eq('id', id)
+          .select('id,status');
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error(`Campaign ${id} không tồn tại trong Supabase hiện tại của web.`);
+      }
+
       await Promise.all(
         campaignIds.map(async (id) => {
           try {
             await workerPost(`/api/campaigns/${id}/${mode === 'pause' ? 'pause' : 'resume'}`, {});
           } catch (_err: any) {
-            const { error } = await supabase
-              .from('campaigns')
-              .update({ status: mode === 'pause' ? 'paused' : 'active' })
-              .eq('id', id);
-            if (error) throw error;
+            // Ignore worker failure if local update already committed.
           }
         })
       );
