@@ -26,20 +26,37 @@ export default function BackfillPage() {
   );
 
   async function load() {
-    const [groupRes, jobRes] = await Promise.all([
+    setNotice('');
+    const [groupRes, jobRes] = await Promise.allSettled([
       supabase.from('telegram_groups').select('*').order('title'),
       workerGet('/api/backfill/jobs')
     ]);
-    const all = groupRes.data || [];
-    setAllGroups(all);
-    const backups = all.filter((g: any) => {
-      const hasChatId = Number.isFinite(Number(g.chat_id));
-      return hasChatId;
-    });
-    setGroups(backups);
-    setJobs(jobRes.jobs || []);
-    if (!form.source_group_id && backups.length > 0) {
-      setForm((prev) => ({ ...prev, source_group_id: backups[0].id }));
+
+    if (groupRes.status === 'fulfilled') {
+      const all = groupRes.value.data || [];
+      setAllGroups(all);
+      const backups = all.filter((g: any) => {
+        const hasChatId = Number.isFinite(Number(g.chat_id));
+        return hasChatId;
+      });
+      setGroups(backups);
+      if (!form.source_group_id && backups.length > 0) {
+        setForm((prev) => ({ ...prev, source_group_id: backups[0].id }));
+      }
+    } else {
+      setAllGroups([]);
+      setGroups([]);
+      setNotice(`Lỗi tải nhóm: ${String((groupRes as any).reason?.message || (groupRes as any).reason || 'unknown')}`);
+    }
+
+    if (jobRes.status === 'fulfilled') {
+      setJobs(jobRes.value.jobs || []);
+    } else {
+      setJobs([]);
+      setNotice((prev) => {
+        const jobErr = `Lỗi tải backfill jobs: ${String((jobRes as any).reason?.message || (jobRes as any).reason || 'unknown')}`;
+        return prev ? `${prev} | ${jobErr}` : jobErr;
+      });
     }
   }
 
