@@ -16,6 +16,7 @@ API_HASH = os.getenv("TELETHON_API_HASH", "")
 SESSION_STRING = os.getenv("TELETHON_SESSION_STRING", "")
 POLL_SECONDS = int(os.getenv("BACKFILL_POLL_SECONDS", "10"))
 CHUNK_SIZE = 50
+PORT = int(os.getenv("PORT", "10000"))
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not API_ID or not API_HASH or not SESSION_STRING:
   raise RuntimeError("Missing required env for backfill worker")
@@ -206,5 +207,52 @@ async def loop_forever():
       await asyncio.sleep(POLL_SECONDS)
 
 
+async def health_handler(reader, writer):
+  try:
+    req = await reader.read(1024)
+    line = req.splitlines()[0].decode("utf-8", "ignore") if req else ""
+    path = "/"
+    if line.startswith("GET "):
+      parts = line.split(" ")
+      if len(parts) >= 2:
+        path = parts[1]
+    if path in ("/health", "/"):
+      body = b'{"ok":true,"service":"backfill"}'
+      writer.write(
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/json\r\n"
+        + f"Content-Length: {len(body)}\r\n".encode()
+        + b"Connection: close\r\n\r\n"
+        + body
+      )
+    else:
+      body = b'{"ok":false,"error":"not_found"}'
+      writer.write(
+        b"HTTP/1.1 404 Not Found\r\n"
+        b"Content-Type: application/json\r\n"
+        + f"Content-Length: {len(body)}\r\n".encode()
+        + b"Connection: close\r\n\r\n"
+        + body
+      )
+    await writer.drain()
+  finally:
+    writer.close()
+    await writer.wait_closed()
+
+
+async def start_health_server():
+  server = await asyncio.start_server(health_handler, host="0.0.0.0", port=PORT)
+  print(f"health server listening on :{PORT}")
+  async with server:
+    await server.serve_forever()
+
+
+async def main():
+  await asyncio.gather(
+    loop_forever(),
+    start_health_server()
+  )
+
+
 if __name__ == "__main__":
-  asyncio.run(loop_forever())
+  asyncio.run(main())
