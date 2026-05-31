@@ -259,6 +259,106 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true, mode: 'all', results: all });
   });
 
+  app.post('/api/backfill/jobs/create', requireAdmin, async (req, res) => {
+    const sourceGroupId = String(req.body?.source_group_id || '');
+    const fromId = Number(req.body?.from_message_id);
+    const toId = Number(req.body?.to_message_id);
+    const sourceThreadId = req.body?.source_thread_id === null || req.body?.source_thread_id === undefined
+      ? null
+      : Number(req.body?.source_thread_id);
+    const createLinkOnly = req.body?.create_link_only !== false;
+
+    if (!sourceGroupId) return res.status(400).json({ ok: false, error: 'source_group_id is required' });
+    if (!Number.isFinite(fromId) || !Number.isFinite(toId)) {
+      return res.status(400).json({ ok: false, error: 'from_message_id/to_message_id must be numbers' });
+    }
+
+    const { data: sourceGroup } = await supabase
+      .from('telegram_groups')
+      .select('id,chat_id,type')
+      .eq('id', sourceGroupId)
+      .single();
+    if (!sourceGroup || sourceGroup.type !== 'backup') {
+      return res.status(400).json({ ok: false, error: 'source_group_id must be an active backup group' });
+    }
+
+    const start = Math.min(fromId, toId);
+    const end = Math.max(fromId, toId);
+    const total = end - start + 1;
+
+    const { data: job, error } = await supabase
+      .from('backfill_jobs')
+      .insert({
+        source_group_id: sourceGroup.id,
+        source_chat_id: sourceGroup.chat_id,
+        source_thread_id: Number.isFinite(sourceThreadId as number) ? sourceThreadId : null,
+        from_message_id: start,
+        to_message_id: end,
+        create_link_only: createLinkOnly,
+        total_estimated: total,
+        status: 'pending'
+      })
+      .select('*')
+      .single();
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    res.json({ ok: true, job });
+  });
+
+  app.get('/api/backfill/jobs', requireAdmin, async (_req, res) => {
+    const { data, error } = await supabase
+      .from('backfill_jobs')
+      .select('*,telegram_groups(title)')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) return res.status(400).json({ ok: false, error: error.message });
+    res.json({ ok: true, jobs: data || [] });
+  });
+
+  app.get('/api/backfill/jobs/:id', requireAdmin, async (req, res) => {
+    const { data: job, error } = await supabase
+      .from('backfill_jobs')
+      .select('*,telegram_groups(title)')
+      .eq('id', req.params.id)
+      .single();
+    if (error || !job) return res.status(404).json({ ok: false, error: 'job not found' });
+    const { data: checkpoints } = await supabase
+      .from('backfill_checkpoints')
+      .select('*')
+      .eq('job_id', req.params.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    res.json({ ok: true, job, checkpoints: checkpoints || [] });
+  });
+
+  app.post('/api/backfill/jobs/:id/start', requireAdmin, async (req, res) => {
+    const { data: job } = await supabase.from('backfill_jobs').select('*').eq('id', req.params.id).single();
+    if (!job) return res.status(404).json({ ok: false, error: 'job not found' });
+    if (job.status === 'done') return res.status(400).json({ ok: false, error: 'job already done' });
+    await supabase
+      .from('backfill_jobs')
+      .update({ status: 'running', started_at: job.started_at || new Date().toISOString(), last_error: null })
+      .eq('id', req.params.id);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/backfill/jobs/:id/pause', requireAdmin, async (req, res) => {
+    await supabase
+      .from('backfill_jobs')
+      .update({ status: 'paused' })
+      .eq('id', req.params.id)
+      .eq('status', 'running');
+    res.json({ ok: true });
+  });
+
+  app.post('/api/backfill/jobs/:id/cancel', requireAdmin, async (req, res) => {
+    await supabase
+      .from('backfill_jobs')
+      .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .in('status', ['pending', 'running', 'paused', 'failed']);
+    res.json({ ok: true });
+  });
+
   app.post('/api/queue/generate', requireAdmin, async (req, res) => {
     const summary = await generateQueueForCampaign(req.body?.campaignId);
     res.json({ ok: true, summary });

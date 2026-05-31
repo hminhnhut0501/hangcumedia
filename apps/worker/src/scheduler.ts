@@ -2,6 +2,7 @@ import { env } from './config.js';
 import { logger } from './logger.js';
 import { generateQueueForCampaign, processDueQueueItems } from './queue.js';
 import { reconcileAllBackupSources } from './reconcile.js';
+import { processBackfillTick } from './backfill.js';
 
 export function startScheduler() {
   const intervalMs = env.SCHEDULER_TICK_SECONDS * 1000;
@@ -14,6 +15,7 @@ export function startScheduler() {
       // Auto-generate queue for active campaigns before processing due items.
       await generateQueueForCampaign();
       await processDueQueueItems();
+      await processBackfillTick();
     } catch (e) {
       logger.error('Scheduler tick failed', e);
     }

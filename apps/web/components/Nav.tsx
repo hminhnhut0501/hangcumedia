@@ -13,7 +13,8 @@ import {
   Hash,
   Inbox,
   ListChecks,
-  ScrollText
+  ScrollText,
+  Database
 } from 'lucide-react';
 
 const links = [
@@ -22,6 +23,7 @@ const links = [
   { href: '/groups', label: 'Nhóm', hint: 'Quản lý nguồn/đích', Icon: Users },
   { href: '/topics', label: 'Chủ đề', hint: 'Mapping topic đích', Icon: Hash },
   { href: '/inbox', label: 'Hộp nguồn', hint: 'Source messages', Icon: Inbox },
+  { href: '/backfill', label: 'Backfill', hint: 'Import lịch sử cũ', Icon: Database },
   { href: '/campaigns', label: 'Chiến dịch', hint: 'Sửa/Xóa/Tạm dừng', Icon: Megaphone },
   { href: '/queue', label: 'Hàng đợi', hint: 'Retry/Send now', Icon: ListChecks },
   { href: '/logs', label: 'Nhật ký', hint: 'Theo dõi lỗi gửi', Icon: ScrollText },

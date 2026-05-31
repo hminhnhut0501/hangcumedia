@@ -6,6 +6,7 @@ import { env } from './config.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let isGeneratingQueue = false;
+let runtimeSettingsCache: { at: number; data: { globalRunTimes: string[]; maxLateSeconds: number } } | null = null;
 
 function parseRunTimes(input: string[]): string[] {
   return input
@@ -20,6 +21,43 @@ function shuffle<T>(arr: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+async function loadRuntimeSettings() {
+  const now = Date.now();
+  if (runtimeSettingsCache && now - runtimeSettingsCache.at < 30_000) return runtimeSettingsCache.data;
+
+  const globalRunTimesFromEnv = env.GLOBAL_RUN_TIMES
+    ? parseRunTimes(env.GLOBAL_RUN_TIMES.split(','))
+    : [];
+  const fallback = {
+    globalRunTimes: globalRunTimesFromEnv,
+    maxLateSeconds: env.MAX_LATE_SECONDS
+  };
+
+  let result = fallback;
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key,value')
+      .in('key', ['global_run_times', 'max_late_seconds']);
+
+    const byKey = new Map<string, any>();
+    for (const row of data || []) byKey.set(String(row.key), row.value);
+    const globalRunTimesFromDb = Array.isArray(byKey.get('global_run_times'))
+      ? parseRunTimes((byKey.get('global_run_times') as any[]).map((x) => String(x)))
+      : [];
+    const maxLateFromDb = Number(byKey.get('max_late_seconds'));
+    result = {
+      globalRunTimes: globalRunTimesFromDb.length ? globalRunTimesFromDb : globalRunTimesFromEnv,
+      maxLateSeconds: Number.isFinite(maxLateFromDb) && maxLateFromDb >= 0 ? maxLateFromDb : env.MAX_LATE_SECONDS
+    };
+  } catch {
+    result = fallback;
+  }
+
+  runtimeSettingsCache = { at: now, data: result };
+  return result;
 }
 
 async function seedCampaignSourcesIfEmpty(campaign: any) {
@@ -128,6 +166,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
   isGeneratingQueue = true;
 
   try {
+    const runtime = await loadRuntimeSettings();
     let query = supabase.from('campaigns').select('*').eq('status', 'active');
     if (campaignId) query = query.eq('id', campaignId);
     const { data: campaigns, error } = await query;
@@ -144,9 +183,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
           .update({ source_state: 'ready' })
           .eq('id', campaign.id);
       }
-      const globalRunTimes = env.GLOBAL_RUN_TIMES
-        ? parseRunTimes(env.GLOBAL_RUN_TIMES.split(','))
-        : [];
+      const globalRunTimes = runtime.globalRunTimes;
       const rawRunTimes: string[] = globalRunTimes.length > 0
         ? globalRunTimes
         : (campaign.run_times ?? ['21:00']);
@@ -235,7 +272,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
         const scheduledAt = scheduledLocal.toUTC().toISO();
         if (!scheduledAt) continue;
         const nowInCampaignTz = DateTime.now().setZone(tz);
-        if (scheduledLocal < nowInCampaignTz.minus({ seconds: env.MAX_LATE_SECONDS })) {
+        if (scheduledLocal < nowInCampaignTz.minus({ seconds: runtime.maxLateSeconds })) {
           summary.skipped_past_slot += 1;
           continue;
         }
@@ -373,6 +410,7 @@ async function markFailed(itemId: string, errorMessage: string, retryCount: numb
 }
 
 export async function processDueQueueItems() {
+  const runtime = await loadRuntimeSettings();
   await supabase
     .from('queue_items')
     .update({ status: 'pending', locked_at: null })
@@ -400,13 +438,13 @@ export async function processDueQueueItems() {
 
     const scheduledAt = DateTime.fromISO(item.scheduled_at);
     const lateSeconds = Math.floor(DateTime.now().diff(scheduledAt, 'seconds').seconds);
-    if (lateSeconds > env.MAX_LATE_SECONDS) {
+    if (lateSeconds > runtime.maxLateSeconds) {
       await supabase
         .from('queue_items')
         .update({
           status: 'skipped',
           locked_at: null,
-          error_message: `Skipped late item (+${lateSeconds}s > ${env.MAX_LATE_SECONDS}s)`
+          error_message: `Skipped late item (+${lateSeconds}s > ${runtime.maxLateSeconds}s)`
         })
         .eq('id', item.id);
       await supabase.from('send_logs').insert({
