@@ -123,6 +123,25 @@ export default function CampaignsPage() {
     return lanes.filter((lane) => lane.campaigns.length > 0 || topicFilter === 'all');
   }, [drawerCampaigns, drawerTopicsRaw, topicFilter]);
 
+  async function setCampaignStatus(row: Campaign, nextStatus: 'active' | 'paused') {
+    try {
+      try {
+        await workerPost(`/api/campaigns/${row.id}/${nextStatus === 'paused' ? 'pause' : 'resume'}`, {});
+      } catch (_err: any) {
+        const { error } = await supabase
+          .from('campaigns')
+          .update({ status: nextStatus })
+          .eq('id', row.id);
+        if (error) throw error;
+      }
+      setRows((prev) => prev.map((x) => (x.id === row.id ? { ...x, status: nextStatus } : x)));
+      appToast(nextStatus === 'paused' ? 'Đã tạm dừng campaign' : 'Đã tiếp tục campaign', 'success');
+      load();
+    } catch (err: any) {
+      appToast(`Cập nhật trạng thái thất bại: ${err?.message || 'unknown error'}`, 'error');
+    }
+  }
+
   async function deleteCampaign(row: Campaign) {
     if (!confirm('Xóa campaign này?')) return;
     try {
@@ -158,7 +177,22 @@ export default function CampaignsPage() {
       return;
     }
     try {
-      await Promise.all(campaignIds.map((id) => workerPost(`/api/campaigns/${id}/${mode === 'pause' ? 'pause' : 'resume'}`, {})));
+      await Promise.all(
+        campaignIds.map(async (id) => {
+          try {
+            await workerPost(`/api/campaigns/${id}/${mode === 'pause' ? 'pause' : 'resume'}`, {});
+          } catch (_err: any) {
+            const { error } = await supabase
+              .from('campaigns')
+              .update({ status: mode === 'pause' ? 'paused' : 'active' })
+              .eq('id', id);
+            if (error) throw error;
+          }
+        })
+      );
+      setRows((prev) => prev.map((x) => (
+        campaignIds.includes(x.id) ? { ...x, status: mode === 'pause' ? 'paused' : 'active' } : x
+      )));
       appToast(mode === 'pause' ? 'Đã tạm dừng theo ngữ cảnh' : 'Đã tiếp tục theo ngữ cảnh', 'success');
       load();
     } catch (err: any) {
@@ -311,8 +345,8 @@ export default function CampaignsPage() {
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Link className="btn-secondary" href={`/campaigns/${row.id}`}>Mở</Link>
-                            <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); appToast('Đã tạm dừng campaign', 'info'); load(); }}>Pause</button>
-                            <button className="btn-success" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/resume`, {}); appToast('Đã tiếp tục campaign', 'success'); load(); }}>Resume</button>
+                            <button className="btn-secondary" onClick={() => setCampaignStatus(row, 'paused')}>Pause</button>
+                            <button className="btn-success" onClick={() => setCampaignStatus(row, 'active')}>Resume</button>
                             <button className="btn-danger" onClick={() => deleteCampaign(row)}>Xóa</button>
                           </div>
                         </div>
