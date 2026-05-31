@@ -9,7 +9,7 @@ function buildWorkerUrl(parts: string[]) {
   return `${base.replace(/\/$/, '')}/${joined}`;
 }
 
-async function proxy(method: 'POST' | 'DELETE', req: NextRequest, parts: string[]) {
+async function proxy(method: 'GET' | 'POST' | 'DELETE', req: NextRequest, parts: string[]) {
   try {
     const adminSecret = process.env.ADMIN_API_SECRET;
     if (!adminSecret) {
@@ -17,7 +17,7 @@ async function proxy(method: 'POST' | 'DELETE', req: NextRequest, parts: string[
     }
 
     const url = buildWorkerUrl(parts);
-    const rawBody = method === 'DELETE' ? undefined : await req.text();
+    const rawBody = method === 'GET' || method === 'DELETE' ? undefined : await req.text();
     const resp = await fetch(url, {
       method,
       headers: {
@@ -43,6 +43,11 @@ async function proxy(method: 'POST' | 'DELETE', req: NextRequest, parts: string[
 export async function POST(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   return proxy('POST', req, path);
+}
+
+export async function GET(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
+  return proxy('GET', req, path);
 }
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {

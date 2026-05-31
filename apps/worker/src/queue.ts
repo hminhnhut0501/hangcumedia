@@ -70,11 +70,14 @@ async function syncCampaignSourcesFromGroup(campaign: any) {
     .select('id,created_at,source_message_id,status')
     .eq('source_chat_id', sourceChatId)
     .neq('status', 'link_only')
-    .order('source_message_id', { ascending: true })
+    // Fetch newest first to avoid missing recent items when table grows.
+    .order('source_message_id', { ascending: false })
     .limit(2000);
   if (!pool?.length) return 0;
 
-  const missing = pool.filter((msg: any) => !existingSet.has(String(msg.id)));
+  const missing = pool
+    .filter((msg: any) => !existingSet.has(String(msg.id)))
+    .sort((a: any, b: any) => Number(a.source_message_id) - Number(b.source_message_id));
   if (!missing.length) return 0;
 
   const rows = missing.map((msg: any) => ({
@@ -97,6 +100,7 @@ export async function generateQueueForCampaign(campaignId?: string) {
     skipped_no_sources: 0,
     skipped_no_target_group: 0,
     skipped_existing_slot: 0,
+    skipped_past_slot: 0,
     skipped_locked: 0,
     skipped_exhausted_today: 0,
     exhausted_campaigns: 0
@@ -117,7 +121,14 @@ export async function generateQueueForCampaign(campaignId?: string) {
     for (const campaign of campaigns) {
       summary.campaigns_processed += 1;
       summary.sources_seeded += await seedCampaignSourcesIfEmpty(campaign);
-      summary.sources_synced += await syncCampaignSourcesFromGroup(campaign);
+      const synced = await syncCampaignSourcesFromGroup(campaign);
+      summary.sources_synced += synced;
+      if (synced > 0) {
+        await supabase
+          .from('campaigns')
+          .update({ source_state: 'ready' })
+          .eq('id', campaign.id);
+      }
       const rawRunTimes: string[] = campaign.run_times ?? ['21:00'];
       const runTimes = rawRunTimes
         .map((t) => String(t || '').trim())
@@ -143,6 +154,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
 
       if (!sources?.length) {
         summary.skipped_no_sources += 1;
+        await supabase
+          .from('campaigns')
+          .update({ source_state: 'waiting_for_source', last_exhausted_at: DateTime.now().toISO() })
+          .eq('id', campaign.id);
         continue;
       }
 
@@ -165,6 +180,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
       const totalUsed = Array.from(sourceIdSet).filter((id) => usedAllSourceIds.has(id)).length;
       if (totalConfigured > 0 && totalUsed >= totalConfigured) {
         summary.exhausted_campaigns += 1;
+        await supabase
+          .from('campaigns')
+          .update({ source_state: 'waiting_for_source', last_exhausted_at: DateTime.now().toISO() })
+          .eq('id', campaign.id);
         await supabase.from('send_logs').insert({
           campaign_id: campaign.id,
           action: 'generate',
@@ -173,6 +192,10 @@ export async function generateQueueForCampaign(campaignId?: string) {
         });
         continue;
       }
+      await supabase
+        .from('campaigns')
+        .update({ source_state: 'ready' })
+        .eq('id', campaign.id);
 
       // Prevent repeating the same source message within the same campaign day.
       const usedTodaySourceIds = new Set<string>();
@@ -193,6 +216,11 @@ export async function generateQueueForCampaign(campaignId?: string) {
         const scheduledLocal = baseInCampaignTz.set({ hour: h, minute: m, second: 0, millisecond: 0 });
         const scheduledAt = scheduledLocal.toUTC().toISO();
         if (!scheduledAt) continue;
+        const nowInCampaignTz = DateTime.now().setZone(tz);
+        if (scheduledLocal < nowInCampaignTz.minus({ seconds: env.MAX_LATE_SECONDS })) {
+          summary.skipped_past_slot += 1;
+          continue;
+        }
         const { data: existed } = await supabase
           .from('queue_items')
           .select('id')

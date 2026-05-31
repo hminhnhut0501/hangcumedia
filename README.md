@@ -58,6 +58,9 @@ cp .env.example .env
 - `WORKER_URL` (set trong Vercel server env để web proxy gọi worker)
 - `APP_TIMEZONE=Asia/Ho_Chi_Minh`
 - `SCHEDULER_TICK_SECONDS=30`
+- `RECONCILE_INTERVAL_MINUTES=60` (job reconcile nguồn theo giờ)
+- `MAX_RECONCILE_SCAN_IDS=500` (giới hạn số ID quét mỗi nhóm mỗi lượt)
+- `MAX_LATE_SECONDS=900` (quá trễ slot thì bỏ slot, không dồn gửi)
 
 ### Lưu ý bảo mật
 - Không đưa `SUPABASE_SERVICE_ROLE_KEY` ra frontend.
@@ -241,10 +244,13 @@ Bot tự import khi:
 - `POST /api/topics/create`
 - `POST /api/topics/sync`
 - `POST /api/import/link`
+- `POST /api/import/reconcile` (manual reconcile 1 nhóm hoặc tất cả nhóm backup)
 - `POST /api/queue/generate`
 - `POST /api/queue/:id/retry`
 - `POST /api/campaigns/:id/pause`
 - `POST /api/campaigns/:id/resume`
+- `GET /api/runtime/status` (cursor, ingest jobs, campaign source state)
+- `GET /api/telegram/webhook-info` (kiểm tra webhook runtime)
 
 Route `/api/*` cần header:
 - `x-admin-secret: <ADMIN_API_SECRET>`

@@ -11,7 +11,9 @@ const EnvSchema = z.object({
   PUBLIC_WORKER_URL: z.string().url(),
   APP_TIMEZONE: z.string().default('Asia/Ho_Chi_Minh'),
   SCHEDULER_TICK_SECONDS: z.coerce.number().int().positive().default(30),
-  MAX_LATE_SECONDS: z.coerce.number().int().nonnegative().default(60),
+  RECONCILE_INTERVAL_MINUTES: z.coerce.number().int().positive().default(60),
+  MAX_RECONCILE_SCAN_IDS: z.coerce.number().int().positive().max(2000).default(500),
+  MAX_LATE_SECONDS: z.coerce.number().int().nonnegative().default(900),
   ADMIN_API_SECRET: z.string().min(1)
 });
 

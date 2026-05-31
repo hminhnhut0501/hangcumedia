@@ -163,7 +163,10 @@ export default function SetupPage() {
 
       const generate = await workerPost('/api/queue/generate', { campaignId: campaign.id });
       const warningText = (preflight?.warnings || []).length ? ` Cảnh báo: ${(preflight.warnings || []).join(' | ')}` : '';
-      setNotice(`Hoàn tất. Campaign đã tạo và queue đã generate (created=${generate?.summary?.items_created ?? 0}).${warningText}`);
+      const exhaustedText = (generate?.summary?.exhausted_campaigns ?? 0) > 0
+        ? ' Campaign đã hết source chưa dùng. Hãy thêm source mới.'
+        : '';
+      setNotice(`Hoàn tất. Campaign đã tạo và queue đã generate (created=${generate?.summary?.items_created ?? 0}).${warningText}${exhaustedText}`);
       setStep(4);
     } catch (err: any) {
       setNotice(`Lỗi khởi tạo flow: ${err.message}`);
@@ -223,8 +226,8 @@ export default function SetupPage() {
               <div className="grid gap-3 md:grid-cols-3">
                 <div>
                   <label className="mb-1 block text-sm text-zinc-300">Chat ID nguồn</label>
-                  <input className="input" placeholder="-100xxxxxxxxxx" value={scan.chat_id} onChange={(e) => setScan({ ...scan, chat_id: e.target.value })} />
-                  <p className="mt-1 text-xs text-zinc-500">Tự động lấy từ Nhóm nguồn (backup). Có thể sửa tay nếu cần.</p>
+                  <input className="input opacity-90" placeholder="-100xxxxxxxxxx" value={scan.chat_id} readOnly />
+                  <p className="mt-1 text-xs text-zinc-500">Tự động lấy từ Nhóm nguồn (backup), không cần nhập tay.</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-zinc-300">Từ Message ID</label>

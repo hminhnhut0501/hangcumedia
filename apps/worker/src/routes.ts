@@ -5,6 +5,7 @@ import { createForumTopic, getChat, getChatAdministrators } from './telegram.js'
 import { supabase } from './db.js';
 import { parseTelegramLink } from './linkParser.js';
 import { generateQueueForCampaign } from './queue.js';
+import { reconcileAllBackupSources, reconcileSourceByChatId } from './reconcile.js';
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const secret = req.header('x-admin-secret');
@@ -70,6 +71,29 @@ export function registerRoutes(app: Express) {
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'worker' });
+  });
+
+  app.get('/api/runtime/status', requireAdmin, async (_req, res) => {
+    const [cursors, jobs, waitingCampaigns] = await Promise.all([
+      supabase.from('source_cursors').select('*').order('updated_at', { ascending: false }).limit(50),
+      supabase.from('ingest_jobs').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('campaigns').select('id,name,source_state,last_exhausted_at,status').order('updated_at', { ascending: false }).limit(50)
+    ]);
+    res.json({
+      ok: true,
+      cursors: cursors.data || [],
+      ingest_jobs: jobs.data || [],
+      campaigns: waitingCampaigns.data || []
+    });
+  });
+
+  app.get('/api/telegram/webhook-info', requireAdmin, async (_req, res) => {
+    try {
+      const info = await bot.telegram.getWebhookInfo();
+      res.json({ ok: true, info });
+    } catch (err: any) {
+      res.status(400).json({ ok: false, error: err?.message || 'getWebhookInfo failed' });
+    }
   });
 
   app.post('/telegram/webhook/:secret', async (req, res) => {
@@ -196,6 +220,14 @@ export function registerRoutes(app: Express) {
       }
     }
 
+    await supabase
+      .from('source_cursors')
+      .upsert({
+        source_chat_id: chatId,
+        last_seen_message_id: end,
+        last_reconciled_at: new Date().toISOString()
+      }, { onConflict: 'source_chat_id' });
+
     res.json({
       ok: true,
       range: { chat_id: chatId, from_message_id: start, to_message_id: end, total },
@@ -206,6 +238,25 @@ export function registerRoutes(app: Express) {
       },
       checkpoints
     });
+  });
+
+  app.post('/api/import/reconcile', requireAdmin, async (req, res) => {
+    const chatIdRaw = req.body?.chat_id;
+    if (chatIdRaw !== undefined && chatIdRaw !== null && String(chatIdRaw).length > 0) {
+      const chatId = Number(chatIdRaw);
+      if (!Number.isFinite(chatId)) return res.status(400).json({ ok: false, error: 'chat_id must be a number' });
+      const { data: sourceGroup } = await supabase
+        .from('telegram_groups')
+        .select('id')
+        .eq('chat_id', chatId)
+        .eq('type', 'backup')
+        .maybeSingle();
+      const one = await reconcileSourceByChatId(chatId, sourceGroup?.id ?? null);
+      return res.json({ ok: true, mode: 'single', result: one });
+    }
+
+    const all = await reconcileAllBackupSources();
+    res.json({ ok: true, mode: 'all', results: all });
   });
 
   app.post('/api/queue/generate', requireAdmin, async (req, res) => {

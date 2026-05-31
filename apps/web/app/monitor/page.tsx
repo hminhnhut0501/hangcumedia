@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
-import { workerPost } from '@/lib/worker';
+import { workerGet, workerPost } from '@/lib/worker';
 
 export default function MonitorPage() {
   const [queue, setQueue] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [failedPage, setFailedPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
+  const [runtime, setRuntime] = useState<any>(null);
+  const [webhookInfo, setWebhookInfo] = useState<any>(null);
   const pageSize = 10;
   const statusBadge = (s: string) => {
     if (s === 'sent') return 'badge badge-ok';
@@ -37,12 +39,16 @@ export default function MonitorPage() {
   };
 
   async function load() {
-    const [q, l] = await Promise.all([
+    const [q, l, rt, wh] = await Promise.all([
       supabase.from('queue_items').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(100),
-      supabase.from('send_logs').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(50)
+      supabase.from('send_logs').select('*,campaigns(name,timezone),source_messages(source_chat_id,source_message_id)').order('created_at', { ascending: false }).limit(50),
+      workerGet('/api/runtime/status'),
+      workerGet('/api/telegram/webhook-info')
     ]);
     setQueue(q.data || []);
     setLogs(l.data || []);
+    setRuntime(rt);
+    setWebhookInfo(wh?.info || null);
   }
 
   useEffect(() => { load(); }, []);
@@ -61,8 +67,43 @@ export default function MonitorPage() {
 
   return (
     <AppShell title="Giám sát vận hành" subtitle="Theo dõi queue và xử lý lỗi nhanh bằng một màn hình." actions={<button className="btn-secondary" onClick={load}>Làm mới</button>}>
+      <section className="grid gap-3 md:grid-cols-3">
+        <article className="card">
+          <p className="text-xs uppercase text-zinc-500">Webhook URL</p>
+          <p className="mt-2 truncate text-sm text-zinc-200">{webhookInfo?.url || '-'}</p>
+        </article>
+        <article className="card">
+          <p className="text-xs uppercase text-zinc-500">Pending Update</p>
+          <p className="kpi-value mt-2 text-2xl">{Number(webhookInfo?.pending_update_count || 0)}</p>
+        </article>
+        <article className="card">
+          <p className="text-xs uppercase text-zinc-500">Last Error</p>
+          <p className="mt-2 text-sm text-rose-300">{webhookInfo?.last_error_message || '-'}</p>
+          <div className="mt-2 flex justify-end">
+            <button className="btn" onClick={async () => { await workerPost('/api/import/reconcile', {}); await load(); }}>Reconcile now</button>
+          </div>
+        </article>
+      </section>
+
       <section className="grid gap-3 md:grid-cols-5">
         {Object.entries(stats).map(([k, v]) => <article key={k} className="card"><p className="text-xs text-zinc-500 uppercase">{k}</p><p className="kpi-value mt-2 text-2xl">{Number(v)}</p></article>)}
+      </section>
+
+      <section className="card overflow-auto">
+        <h3 className="section-title mb-3 text-lg font-semibold">Campaign source state</h3>
+        <table className="table min-w-[760px]">
+          <thead><tr><th>Campaign</th><th>Status</th><th>Source state</th><th>Exhausted at</th></tr></thead>
+          <tbody>
+            {(runtime?.campaigns || []).map((c: any) => (
+              <tr key={c.id}>
+                <td>{c.name}</td>
+                <td>{c.status}</td>
+                <td>{c.source_state}</td>
+                <td>{c.last_exhausted_at ? new Date(c.last_exhausted_at).toLocaleString('vi-VN') : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <section className="card">

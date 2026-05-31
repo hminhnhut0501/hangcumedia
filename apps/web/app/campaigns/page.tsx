@@ -36,14 +36,19 @@ export default function CampaignsPage() {
         {loading ? <SkeletonTable rows={5} cols={7} /> : null}
         {!loading && rows.length === 0 ? <div className="empty-state">Chưa có chiến dịch nào. Hãy tạo chiến dịch đầu tiên.</div> : null}
         {!loading && rows.length > 0 ? (
-          <table className="table min-w-[900px]">
-            <thead><tr><th>Tên</th><th>Nhóm đích</th><th>Khung giờ</th><th>Batch</th><th>Chế độ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <table className="table min-w-[980px]">
+            <thead><tr><th>Tên</th><th>Nhóm đích</th><th>Khung giờ</th><th>Batch</th><th>Chế độ</th><th>Trạng thái</th><th>Nguồn</th><th>Thao tác</th></tr></thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td><Link className="font-semibold text-zinc-100 hover:underline" href={`/campaigns/${row.id}`}>{row.name}</Link></td>
                   <td>{row.telegram_groups?.title || '-'}</td><td>{(row.run_times || []).join(', ')}</td><td>{row.batch_size}</td><td>{row.copy_mode}/{row.media_group_mode}</td>
                   <td><span className={statusClass(row.status)}>{row.status}</span></td>
+                  <td>
+                    <span className={row.source_state === 'waiting_for_source' ? 'badge badge-warn' : 'badge badge-ok'}>
+                      {row.source_state || 'ready'}
+                    </span>
+                  </td>
                   <td className="flex gap-2 py-2">
                     <Link className="btn-secondary" href={`/campaigns/${row.id}`}>Sửa</Link>
                     <button className="btn-secondary" onClick={async () => { await workerPost(`/api/campaigns/${row.id}/pause`, {}); load(); }}>Tạm dừng</button>

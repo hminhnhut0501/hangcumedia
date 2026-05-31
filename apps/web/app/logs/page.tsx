@@ -45,7 +45,7 @@ export default function LogsPage() {
         <div>
           <label className="mb-1 block text-sm text-zinc-300">Lọc theo trạng thái</label>
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option><option value="sent">sent</option><option value="failed">failed</option>
+            <option value="all">Tất cả trạng thái</option><option value="sent">sent</option><option value="failed">failed</option><option value="exhausted">exhausted</option>
           </select>
           <p className="mt-1 text-xs text-zinc-500">Giúp bạn chỉ xem log thành công hoặc log lỗi.</p>
         </div>

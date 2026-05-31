@@ -30,4 +30,12 @@ export async function importMessage(msg: any, importedBy = 'bot') {
     .upsert(payload, { onConflict: 'source_chat_id,source_message_id' });
 
   if (error) throw error;
+
+  await supabase
+    .from('source_cursors')
+    .upsert({
+      source_chat_id: msg.chat.id,
+      last_seen_message_id: msg.message_id,
+      last_reconciled_at: new Date().toISOString()
+    }, { onConflict: 'source_chat_id' });
 }
